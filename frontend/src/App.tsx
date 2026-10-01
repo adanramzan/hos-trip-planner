@@ -18,7 +18,7 @@ function defaultDepart() {
   const d = new Date(Date.now() + 864e5)
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T08:00`
 }
-const emptyF = (): TripForm => ({ current: '', pickup: '', dropoff: '', cycle: '', depart: defaultDepart(), ll: {} })
+const emptyF = (): TripForm => ({ current: '', pickup: '', dropoff: '', cycle: '0', depart: defaultDepart(), ll: {} })
 
 const ASSUMPTIONS = [
   'Property-carrying driver, 70 hours / 8 days', 'No adverse driving conditions', 'Fuel at least every 1,000 miles (30 minutes, on duty)',
