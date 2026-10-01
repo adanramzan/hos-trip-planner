@@ -33,7 +33,7 @@ export default function App() {
   const [step, setStep] = useState(0)
   const [slow, setSlow] = useState(false)
   const [svcError, setSvcError] = useState<Exclude<PlanErrorKind, 'noRoute'> | null>(null)
-  const [noRoute, setNoRoute] = useState(false)
+  const [noRoute, setNoRoute] = useState<string | false>(false) // the reason text, '' when unknown
   const [trip, setTrip] = useState<Trip | null>(null)
   const [tripVersion, setTripVersion] = useState(0)
   const [activeSample, setActiveSample] = useState<string | null>(null)
@@ -91,7 +91,7 @@ export default function App() {
       clearTimers()
       setReplanning(false)
       const kind: PlanErrorKind = err instanceof PlanError ? err.kind : 'unexpected'
-      if (kind === 'noRoute') { if (err instanceof PlanError && err.field) setErrors({ [err.field]: err.message }); else setNoRoute(true); if (isReplan) setEditOpen(true); else setMode('planner') }
+      if (kind === 'noRoute') { if (err instanceof PlanError && err.field) setErrors({ [err.field]: err.message }); else setNoRoute(err instanceof PlanError ? err.message : ''); if (isReplan) setEditOpen(true); else setMode('planner') }
       else if (isReplan) { setNoRoute(false); setEditOpen(true); setSvcError(kind) }
       else { setSvcError(kind); setMode('planner') }
     }

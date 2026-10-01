@@ -62,6 +62,17 @@ class RouteTests(TestCase):
             with self.assertRaises(NoRoute):
                 r.route([A, B])
 
+    def test_no_route_carries_reason(self):
+        cases = [({"code": 2010, "message": "Could not find routable point within a radius of 350.0 meters of specified coordinate 1: -95.5 41.5."}, "B is not close enough to a road"),
+                 ({"code": 2004, "message": "too long"}, "longer than the routing service allows"),
+                 ({"code": 2009, "message": "not found"}, "no road a truck can drive connects them")]
+        for err, text in cases:
+            with patch("requests.post", return_value=resp(404, {"error": err})):
+                with self.assertRaises(NoRoute) as cm:
+                    r.route([A, B])
+            self.assertIn("No truck route from A to B", str(cm.exception))
+            self.assertIn(text, str(cm.exception))
+
     def test_no_features_is_no_route(self):
         with patch("requests.post", return_value=resp(200, {"features": []})):
             with self.assertRaises(NoRoute):

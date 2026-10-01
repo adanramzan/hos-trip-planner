@@ -41,7 +41,8 @@ def api_exception_handler(exc, context):
         name = exc.field.replace("_location", "")
         return _error(422, "location_not_found", "We couldn't find the %s location. Check the spelling or pick a suggestion." % name, exc.field)
     if isinstance(exc, PlannerError) and type(exc) in PLANNER:
-        return _error(*PLANNER[type(exc)])
+        status, code, message = PLANNER[type(exc)]
+        return _error(status, code, str(exc) or message)  # NoRoute carries its reason
     if isinstance(exc, APIException):  # e.g. malformed JSON, wrong method
         return _error(exc.status_code, "invalid_input" if exc.status_code == 400 else "unexpected", str(exc.detail))
     log.exception("Unexpected error while handling request")

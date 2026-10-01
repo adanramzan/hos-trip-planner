@@ -65,12 +65,12 @@ export async function planTrip(f: TripForm, log: LogDetails): Promise<Trip> {
       throw new PlanError((err as Error).name === 'AbortError' ? 'timeout' : 'unavailable', 'Network error')
     }
     if (!r.ok) {
-      const e = (await r.json().catch(() => null))?.error as { code?: string; field?: string } | undefined
+      const e = (await r.json().catch(() => null))?.error as { code?: string; field?: string; message?: string } | undefined
       if (e?.code === 'location_not_found') {
         const k = (['current', 'pickup', 'dropoff'] as const).find(x => e.field?.startsWith(x))
         throw new PlanError('noRoute', k ? `We couldn't find '${f[k]}'. Pick a suggestion or check the spelling.` : 'Location not found', k)
       }
-      if (e?.code === 'no_route') throw new PlanError('noRoute', 'No route')
+      if (e?.code === 'no_route') throw new PlanError('noRoute', e.message ?? '')
       if (e?.code === 'routing_timeout') throw new PlanError('timeout', 'Timeout')
       if (e?.code === 'routing_unavailable' || r.status >= 500) throw new PlanError('unavailable', 'Unavailable')
       throw new PlanError('unexpected', 'Unexpected response')

@@ -48,7 +48,7 @@ interface Props {
   disabled: boolean
   busy: boolean
   isResults: boolean
-  noRoute: boolean
+  noRoute: string | false
   clearNoRoute: () => void
   onPick: (k: LocKey, s: Suggestion) => void
   activeSample: string | null
@@ -92,11 +92,12 @@ export function TripFormPanel(p: Props) {
 
   return (
     <div className="form-card">
-      {p.noRoute && (
+      {p.noRoute !== false && (
         <div className="notice">
           <div style={{ color: '#3f3f46', paddingTop: 1 }}><Icon name="alert" size={18} /></div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ fontSize: 14, fontWeight: 500 }}>There's no drivable truck route between these locations.</div>
+            {p.noRoute && <div style={{ fontSize: 13, color: '#52525b', lineHeight: 1.45 }}>{p.noRoute}</div>}
             <button className="btn btn-sm" style={{ alignSelf: 'flex-start' }}
               onClick={() => { p.clearNoRoute(); setTimeout(() => refs.current.current?.focus(), 20) }}>Edit locations</button>
           </div>
