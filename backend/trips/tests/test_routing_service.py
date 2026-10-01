@@ -26,8 +26,9 @@ def resp(status=200, payload=PAYLOAD):
 class RouteTests(TestCase):
     def test_success_conversion(self):
         """Test 17: meters/seconds become miles/minutes, geometry is (lat, lng)."""
-        with patch("requests.post", return_value=resp()):
+        with patch("requests.post", return_value=resp()) as post:
             (leg,) = r.route([A, B])
+        self.assertEqual(post.call_args.kwargs["json"]["radiuses"], [r.SNAP_RADIUS_METERS] * 2)
         self.assertAlmostEqual(leg.distance_miles, 100.0, places=2)
         self.assertAlmostEqual(leg.duration_minutes, 60.0)
         self.assertEqual(leg.geometry[1], (41.2, -95.2))
