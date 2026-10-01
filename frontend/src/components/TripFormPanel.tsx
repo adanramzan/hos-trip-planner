@@ -34,7 +34,8 @@ export function validate(f: TripForm): FormErrors {
     if (!v) e[k] = `Enter a ${noun}.`
   })
   const c = parseFloat(f.cycle)
-  if (f.cycle === '' || isNaN(c) || c < 0 || c > 70) e.cycle = 'Enter hours between 0 and 70.'
+  if (f.cycle === '' || isNaN(c)) e.cycle = 'Enter your cycle hours used. Type 0 if you have none.'
+  else if (c < 0 || c > 70) e.cycle = 'Enter hours between 0 and 70.'
   return e
 }
 
@@ -189,7 +190,7 @@ export function TripFormPanel(p: Props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <input id="cycle" ref={el => { refs.current.cycle = el }} className={'input' + (errors.cycle ? ' invalid' : '')}
             style={{ width: 84, padding: '0 10px' }} type="number" min={0} max={70} step={0.25} value={f.cycle}
-            disabled={disabled} placeholder="0" onChange={e => p.setF('cycle', e.target.value)} />
+            disabled={disabled} placeholder="e.g. 18" onChange={e => p.setF('cycle', e.target.value)} />
           <input type="range" min={0} max={70} step={0.5} value={cOk ? cn : 0} disabled={disabled} aria-label="Cycle hours used"
             style={{ flex: 1, accentColor: C.navy }} onChange={e => p.setF('cycle', e.target.value)} />
         </div>
