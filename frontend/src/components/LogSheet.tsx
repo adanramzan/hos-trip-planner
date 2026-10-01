@@ -129,18 +129,18 @@ export function LogSheet({ trip, day, log: lg, print, demo, dots, sel, hoverEv, 
   })
   let lastX = -99, stag = 0
   grp.forEach(gr => {
-    const a = xs(gr.s), b = Math.max(xs(gr.e), a + 4)
-    stag = a - lastX < 40 ? stag + 1 : 0 // close neighbours: a longer stem keeps the parallel labels apart
-    lastX = a
+    const a = xs(gr.s), b = Math.max(xs(gr.e), a + 4), cx = (a + b) / 2
+    stag = cx - lastX < 40 ? stag + 1 : 0 // close neighbours: a longer stem keeps the parallel labels apart
+    lastX = cx
     const y = B1 + stag * 22
     const stopEv = gr.acts.find(x => x.meta.stop)
     const col = !print && stopEv && sel === stopEv.i ? C.accent : ink
     const acts = [...new Set(gr.acts.map(x => x.meta.rm).filter(Boolean))].join(' / ')
     const len = Math.max(gr.loc.length * 6, acts.length * 5) + 14
     const clickable = !print && stopEv && onRemark
-    els.push(<path key={k++} d={`M${a} ${B0} V${y} M${a} ${B1} H${b} V${B0}`} fill="none" stroke={col} strokeWidth={2} />)
+    els.push(<path key={k++} d={`M${a} ${B0} V${B1} H${b} V${B0} M${cx} ${B1} V${y}`} fill="none" stroke={col} strokeWidth={2} />)
     els.push(
-      <g key={k++} transform={`translate(${a},${y}) rotate(-45)`} style={{ cursor: clickable ? 'pointer' : 'default' }}
+      <g key={k++} transform={`translate(${cx},${y}) rotate(-45)`} style={{ cursor: clickable ? 'pointer' : 'default' }}
         onClick={clickable ? () => onRemark(stopEv.i) : undefined}>
         <line x1={-len} y1={0} x2={0} y2={0} stroke={col} strokeWidth={2} />
         <text x={-8} y={-5} fontSize={10.5} fill={col} textAnchor="end" fontWeight={600}>{gr.loc}</text>
