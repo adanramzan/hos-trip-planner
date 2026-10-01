@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from rest_framework.decorators import api_view
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from common.constants import MAX_CYCLE_HOURS
@@ -30,6 +31,17 @@ def geocode_autocomplete(request):
     except Exception:  # autocomplete must never error the form
         return Response({"suggestions": []})
     return Response({"suggestions": [{"label": l.name, "lat": l.lat, "lng": l.lng} for l in locs]})
+
+
+@api_view(["GET"])
+def geocode_reverse(request):
+    try:
+        lat, lng = float(request.query_params["lat"]), float(request.query_params["lng"])
+    except (KeyError, ValueError):
+        raise ValidationError("lat and lng must be numbers.")
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):  # also rejects NaN
+        raise ValidationError("lat or lng is out of range.")
+    return Response({"label": geocoding_service.reverse_many([(lat, lng)])[0], "lat": lat, "lng": lng})
 
 
 def _resolve(data):

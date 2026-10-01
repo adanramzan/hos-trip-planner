@@ -219,3 +219,10 @@ button:disabled { cursor: default }
   [data-page] { box-shadow: none !important; margin: 0 !important; break-after: page }
   @page { size: letter portrait; margin: 0 }
 }
+.picker-scrim { z-index: 1400; display: flex; align-items: center; justify-content: center }
+.picker { position: static; width: min(640px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 12px; animation: none }
+.picker-map { position: relative; height: 380px; border-radius: 10px; overflow: hidden; border: 1px solid #e4e4e7 }
+@media (max-width: 640px) {
+  .picker { width: calc(100vw - 16px); height: calc(100dvh - 16px) }
+  .picker-map { flex: 1; height: auto }
+}

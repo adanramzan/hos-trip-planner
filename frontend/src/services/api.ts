@@ -30,6 +30,15 @@ export async function suggest(q: string): Promise<Suggestion[]> {
   })
 }
 
+/** Place name for a map click; the backend falls back to a coordinate label. */
+export async function reverse(lat: number, lng: number): Promise<string> {
+  try {
+    const r = await fetch(`${BASE}/api/geocode/reverse?lat=${lat}&lng=${lng}`)
+    if (r.ok) return (await r.json() as { label: string }).label
+  } catch { /* fall through */ }
+  return `${lat.toFixed(2)}, ${lng.toFixed(2)}`
+}
+
 /** Wakes a sleeping backend. Failures are ignored. */
 export const ping = () => { fetch(`${BASE}/api/health`).catch(() => {}) }
 

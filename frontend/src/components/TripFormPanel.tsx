@@ -6,6 +6,7 @@ import type { IconName, LogDetails, TripForm } from '../types/trip'
 import { qh } from '../utils/format'
 import { C } from '../utils/trip'
 import { Icon } from './Icon'
+import { MapPicker } from './MapPicker'
 
 export type FormErrors = Partial<Record<keyof TripForm, string>>
 
@@ -61,6 +62,7 @@ export function TripFormPanel(p: Props) {
   const [focus, setFocus] = useState<LocKey | null>(null)
   const [ai, setAi] = useState(0)
   const [logOpen, setLogOpen] = useState(false)
+  const [mapFor, setMapFor] = useState<LocKey | null>(null)
   const [sug, setSug] = useState<{ q: string; list: Suggestion[] } | null>(null)
   const refs = useRef<Partial<Record<keyof TripForm, HTMLInputElement | null>>>({})
 
@@ -140,7 +142,8 @@ export function TripFormPanel(p: Props) {
               </div>
               <div style={{ position: 'relative', paddingBottom: 16 }}>
                 <label className="label" htmlFor={'loc-' + k}>{label}</label>
-                <div style={{ position: 'relative' }}>
+                <div style={{ position: 'relative', display: 'flex', gap: 6 }}>
+                  <div style={{ position: 'relative', flex: 1 }}>
                   <input id={'loc-' + k} ref={el => { refs.current[k] = el }} className={'input' + (err ? ' invalid' : '')}
                     style={{ width: '100%', paddingRight: 64 }} value={v} disabled={disabled} placeholder={ph}
                     autoComplete="off" aria-invalid={!!err} role="combobox" aria-expanded={open}
@@ -169,6 +172,9 @@ export function TripFormPanel(p: Props) {
                       {!list.length && <div style={{ padding: 10, fontSize: 13, color: '#71717a' }}>No matching places. Check the spelling.</div>}
                     </div>
                   )}
+                  </div>
+                  <button type="button" className="btn" style={{ width: 36, padding: 0 }} disabled={disabled} aria-label={'Pick ' + label.toLowerCase() + ' on map'}
+                    title="Pick on map" onClick={() => setMapFor(k)}><Icon name="mapPin" /></button>
                 </div>
                 {err && <div className="error-text" style={{ marginTop: 6 }}>{err}</div>}
               </div>
@@ -228,6 +234,7 @@ export function TripFormPanel(p: Props) {
         </button>
         <button className="link-btn" style={{ alignSelf: 'center' }} onClick={p.onAssum}>What does the planner assume?</button>
       </div>
+      {mapFor && <MapPicker ll={f.ll[mapFor]} onClose={() => setMapFor(null)} onUse={s => { pick(mapFor, s); setMapFor(null) }} />}
     </div>
   )
 }
