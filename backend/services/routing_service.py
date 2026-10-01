@@ -10,6 +10,7 @@ from common.types import Leg, Step
 URL = "https://api.openrouteservice.org/v2/directions/%s/geojson" % ROUTING_PROFILE
 TIMEOUT = 20  # seconds
 SAME_POINT_METERS = 50
+SNAP_RADIUS_METERS = 5000  # ORS default is 350 m; a geocoded city centre can sit further from a truck road
 
 
 def _meters_between(a, b):
@@ -41,7 +42,7 @@ def _leg(a, b):
     try:
         r = requests.post(
             URL,
-            json={"coordinates": [[a.lng, a.lat], [b.lng, b.lat]]},
+            json={"coordinates": [[a.lng, a.lat], [b.lng, b.lat]], "radiuses": [SNAP_RADIUS_METERS] * 2},
             headers={"Authorization": settings.ORS_API_KEY},
             timeout=TIMEOUT,
         )
