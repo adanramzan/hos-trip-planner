@@ -144,8 +144,12 @@ class PlanApiTests(SimpleTestCase):
         with patch("requests.post", side_effect=requests.Timeout()):
             self.assertEqual(self.c.post(URL, body(), format="json").status_code, 504)
 
-    def test_naive_start_rejected(self):
+    def test_start_without_offset_is_home_terminal_time(self):
         r = self.post(body(start_datetime="2026-10-01T08:00:00"))
+        self.assertEqual((r.status_code, r.json()["trip"]["start_time"]), (200, "2026-10-01T08:00:00-04:00"))
+
+    def test_invalid_start_rejected(self):
+        r = self.post(body(start_datetime="tomorrow"))
         self.assertEqual((r.status_code, r.json()["error"]["field"]), (400, "start_datetime"))
 
     def test_lat_lng_both_or_neither(self):

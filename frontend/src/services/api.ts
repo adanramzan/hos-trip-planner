@@ -33,12 +33,6 @@ export async function suggest(q: string): Promise<Suggestion[]> {
 /** Wakes a sleeping backend. Failures are ignored. */
 export const ping = () => { fetch(`${BASE}/api/health`).catch(() => {}) }
 
-/** "2026-10-01T08:00" (local) to "2026-10-01T08:00:00-04:00". */
-export function withOffset(local: string) {
-  const o = -new Date(local).getTimezoneOffset(), a = Math.abs(o)
-  return `${local}:00${o < 0 ? '-' : '+'}${String(Math.floor(a / 60)).padStart(2, '0')}:${String(a % 60).padStart(2, '0')}`
-}
-
 const loc = (f: TripForm, k: LocKey) => { const ll: LL | undefined = f.ll[k]; return ll ? { label: f[k], lat: ll[0], lng: ll[1] } : { label: f[k] } }
 
 export async function planTrip(f: TripForm, log: LogDetails): Promise<Trip> {
@@ -51,7 +45,7 @@ export async function planTrip(f: TripForm, log: LogDetails): Promise<Trip> {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctl.signal,
         body: JSON.stringify({
           current_location: loc(f, 'current'), pickup_location: loc(f, 'pickup'), dropoff_location: loc(f, 'dropoff'),
-          current_cycle_used: parseFloat(f.cycle), start_datetime: withOffset(f.depart),
+          current_cycle_used: parseFloat(f.cycle), start_datetime: f.depart + ':00', // no offset: wall-clock time at the home terminal
           log_details: {
             driver_name: log.driver, co_driver_name: log.codriver, carrier_name: log.carrier, main_office_address: log.office,
             truck_number: log.truck, trailer_number: log.trailer, shipping_document: log.shipping,

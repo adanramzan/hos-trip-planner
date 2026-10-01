@@ -41,6 +41,6 @@ class PlanRequestSerializer(serializers.Serializer):
             dt = parse_datetime(v)  # ISO 8601, accepts "Z"
         except ValueError:
             dt = None
-        if dt is None or dt.utcoffset() is None:
-            raise serializers.ValidationError("Start time must be an ISO date-time with a UTC offset, e.g. 2026-10-01T08:00:00-04:00.")
-        return dt
+        if dt is None:
+            raise serializers.ValidationError("Start time must be an ISO date-time, e.g. 2026-10-01T08:00:00.")
+        return dt  # no offset = wall-clock time at the home terminal (the view attaches the zone)

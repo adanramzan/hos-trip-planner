@@ -49,7 +49,7 @@ export function RouteMap({ trip, dayFilter, sel, hoverStop, onSelect, onClearSel
 
   return (
     <MapContainer ref={setMap} center={[39.5, -95]} zoom={4} zoomControl={false} style={{ position: 'absolute', inset: 0 }}>
-      <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" attribution="© OpenStreetMap © CARTO" subdomains="abcd" maxZoom={19} />
+      <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' maxZoom={19} />
       <ZoomControl position="bottomright" />
       {/* ponytail: the response has one polyline, not one per drive, so days are not dimmed; only markers filter. */}
       {[g.slice(0, pi + 1), g.slice(pi)].map((pos, i) => [

@@ -118,7 +118,7 @@ All API calls to ORS (routing and geocoding) are made from the backend; the API 
 - **Log days start and end at midnight, home terminal time.**
 - **All times are on a 15-minute grid** — drive segments round up, fuel/break segments round down.
 - **Truck (HGV) routing** — the planner uses the OpenRouteService `driving-hgv` profile (respects truck restrictions).
-- **Trip start defaults to now** — unless an optional departure date/time is provided.
+- **Departure is home-terminal time** — the form defaults to 08:00 tomorrow and the time entered is read as wall-clock time at the current location, whatever zone the browser is in. The API also accepts a time with an explicit UTC offset, and uses the current time if none is sent.
 - **Rolling 8-day history is unavailable** — the planner sees only the current cycle hours used and does not track which hours roll off. Hours are conservatively assumed to remain until the trip is complete.
 - **34-hour restart is used when the cycle is exhausted** — if both the 11-hour driving limit and the 70-hour cycle limit are hit, a 34-hour off-duty restart (CYCLE_RESTART) is inserted; it resets both clocks.
 - **Missing ELD metadata is not invented** — carrier name, driver name, vehicle number, and shipping unit are blank on the daily log sheets or clearly marked as demo placeholders.

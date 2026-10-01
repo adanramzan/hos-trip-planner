@@ -13,12 +13,12 @@ type Mode = 'planner' | 'loading' | 'results' | 'print'
 
 const DEMO_LOG: LogDetails = { driver: 'Demo Driver', codriver: '', carrier: 'Demo Carrier LLC', office: 'Demo City, ST', truck: 'TRUCK-001', trailer: 'TRL-001', shipping: 'DEMO-0001' }
 const pad = (n: number) => String(n).padStart(2, '0')
-/** Now, rounded up to the next 15 minutes, as a datetime-local value. */
-function nextQuarter() {
-  const d = new Date(Math.ceil(Date.now() / 9e5) * 9e5)
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+/** Tomorrow 08:00 as a datetime-local value; read as home-terminal time by the backend. */
+function defaultDepart() {
+  const d = new Date(Date.now() + 864e5)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T08:00`
 }
-const emptyF = (): TripForm => ({ current: '', pickup: '', dropoff: '', cycle: '', depart: nextQuarter(), ll: {} })
+const emptyF = (): TripForm => ({ current: '', pickup: '', dropoff: '', cycle: '', depart: defaultDepart(), ll: {} })
 
 const ASSUMPTIONS = [
   'Property-carrying driver, 70 hours / 8 days', 'No adverse driving conditions', 'Fuel at least every 1,000 miles (30 minutes, on duty)',

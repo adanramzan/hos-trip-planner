@@ -45,7 +45,8 @@ def _assemble(data):
     locs = _resolve(data)
     legs = routing_service.route(locs)
     home_tz = timezone_service.home_timezone(locs[0].lat, locs[0].lng)
-    start = (data.get("start_datetime") or datetime.now(timezone.utc)).astimezone(home_tz)
+    start = data.get("start_datetime") or datetime.now(timezone.utc)
+    start = start.replace(tzinfo=home_tz) if start.utcoffset() is None else start.astimezone(home_tz)
     cycle_start = data["current_cycle_used"]
     events = hos_scheduler.plan_schedule(legs, cycle_start, start)
 
