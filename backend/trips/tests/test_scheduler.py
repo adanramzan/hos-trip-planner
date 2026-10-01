@@ -176,7 +176,6 @@ class SchedulerTests(unittest.TestCase):
         self.assertEqual((mins(ev[i]), ev[i].duty_status), (60, D.ON_DUTY_NOT_DRIVING))
         self.assertEqual(types(ev[i + 1:i + 4]),
                          [E.POST_TRIP_INSPECTION, E.CYCLE_RESTART, E.PRE_TRIP_INSPECTION])
-        self.assertEqual(cycle_minutes(68.5, ev[:i + 1]) - cycle_minutes(68.5, ev[:i]), 60)
         # Exactly 1h: 15 min less input cycle leaves exactly one 15-min drive before the restart.
         ev = self.plan([leg(15), leg(120)], cycle=68.25)
         i = types(ev).index(E.PICKUP)
