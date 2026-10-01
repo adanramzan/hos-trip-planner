@@ -113,10 +113,14 @@ export function LogSheet({ trip, day, log: lg, print, demo, dots, sel, hoverEv, 
     <rect key={k++} x={xs(g.s)} y={g.y - 11} width={Math.max(6, (g.e - g.s) * HW)} height={22} fill="transparent" style={{ cursor: 'pointer' }}
       onMouseEnter={() => onHover(g.x.i, (xs(g.s) + xs(g.e)) / 2, g.y)} />))
 
-  // Remarks: bracket each non-driving stretch, label rotated 45°.
-  const RY = GY + 4 * RH + 44, BY = RY + 14
-  T(24, RY, 'Remarks', { fs: 14, fw: 700 }); Ln(1012, RY + 2, 1076, RY + 2)
-  els.push(<line key={k++} x1={40} y1={BY} x2={40} y2={808} stroke={txt} strokeWidth={3} />); Ln(40, 808, 1076, 808, txt, 1.5)
+  // Remarks: a second ruler under the grid; each non-driving stretch hangs a bracket from it,
+  // with a 45° line carrying the place above and the activity below (FMCSA example style).
+  const RT = GY + 4 * RH + 24, B0 = RT + 16, B1 = B0 + 14, RY = RT + 40
+  for (let i = 0; i <= 24; i++) T(xs(i), RT - 5, i === 0 || i === 24 ? 'Midnight' : i === 12 ? 'Noon' : String(i), { fs: 8.5, a: 'middle', fill: lab })
+  Ln(X0, RT, X1, RT, txt, 1.2)
+  for (let q = 0; q <= 96; q++) { const x = X0 + q * HW / 4; Ln(x, RT, x, RT + (q % 4 === 0 ? 11 : q % 2 === 0 ? 8 : 5), txt, 0.8) }
+  T(24, RY, 'Remarks', { fs: 14, fw: 700 }); Ln(1012, GY + 4 * RH + 46, 1076, GY + 4 * RH + 46)
+  els.push(<line key={k++} x1={40} y1={RY + 10} x2={40} y2={808} stroke={txt} strokeWidth={3} />); Ln(40, 808, 1076, 808, txt, 1.5)
   const grp: { loc: string; s: number; e: number; acts: typeof seg[number]['x'][] }[] = []
   seg.filter(g => g.x.k !== 'drive' && g.x.k !== 'offStart' && g.x.k !== 'offEnd').forEach(g => {
     const l = grp[grp.length - 1]
@@ -125,21 +129,22 @@ export function LogSheet({ trip, day, log: lg, print, demo, dots, sel, hoverEv, 
   })
   let lastX = -99, stag = 0
   grp.forEach(gr => {
-    const a = xs(gr.s), b = Math.max(xs(gr.e), a + 4), cx = (a + b) / 2
-    stag = cx - lastX < 40 ? stag + 1 : 0
-    lastX = cx
-    const drop = 10 + stag * 16
+    const a = xs(gr.s), b = Math.max(xs(gr.e), a + 4)
+    stag = a - lastX < 40 ? stag + 1 : 0 // close neighbours: a longer stem keeps the parallel labels apart
+    lastX = a
+    const y = B1 + stag * 22
     const stopEv = gr.acts.find(x => x.meta.stop)
     const col = !print && stopEv && sel === stopEv.i ? C.accent : ink
-    els.push(<path key={k++} d={`M${a} ${BY + 2} V${BY + 10} H${b} V${BY + 2}`} fill="none" stroke={col} strokeWidth={1.5} />)
-    Ln(cx, BY + 10, cx, BY + 10 + drop, col, 1)
     const acts = [...new Set(gr.acts.map(x => x.meta.rm).filter(Boolean))].join(' / ')
+    const len = Math.max(gr.loc.length * 6, acts.length * 5) + 14
     const clickable = !print && stopEv && onRemark
+    els.push(<path key={k++} d={`M${a} ${B0} V${y} M${a} ${B1} H${b} V${B0}`} fill="none" stroke={col} strokeWidth={2} />)
     els.push(
-      <g key={k++} transform={`translate(${cx + 2},${BY + 14 + drop}) rotate(45)`} style={{ cursor: clickable ? 'pointer' : 'default' }}
+      <g key={k++} transform={`translate(${a},${y}) rotate(-45)`} style={{ cursor: clickable ? 'pointer' : 'default' }}
         onClick={clickable ? () => onRemark(stopEv.i) : undefined}>
-        <text x={0} y={0} fontSize={10.5} fill={col} fontStyle="italic" fontWeight={600}>{gr.loc}</text>
-        <text x={0} y={12} fontSize={9} fill={col} fontStyle="italic">{acts}</text>
+        <line x1={-len} y1={0} x2={0} y2={0} stroke={col} strokeWidth={2} />
+        <text x={-8} y={-5} fontSize={10.5} fill={col} textAnchor="end" fontWeight={600}>{gr.loc}</text>
+        <text x={-8} y={12} fontSize={9.5} fill={col} textAnchor="end" fontWeight={600}>{acts}</text>
       </g>)
   })
 
