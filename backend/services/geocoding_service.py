@@ -19,15 +19,21 @@ def _label(props):
 
 
 def _location(feature):
-    lng, lat = feature["geometry"]["coordinates"]
-    return Location(_label(feature["properties"]), lat, lng)
+    try:
+        lng, lat = feature["geometry"]["coordinates"]
+        return Location(_label(feature["properties"]), lat, lng)
+    except (KeyError, TypeError, ValueError, AttributeError):  # malformed feature
+        raise RoutingUnavailable()
 
 
 def _get(path, params):
     params = dict(params, api_key=settings.ORS_API_KEY)
     r = requests.get(BASE + path, params=params, timeout=TIMEOUT)
     r.raise_for_status()
-    return r.json().get("features", [])
+    try:
+        return r.json().get("features", [])
+    except (ValueError, AttributeError):  # non-JSON or non-object body
+        raise RoutingUnavailable()
 
 
 def geocode(text, field=""):

@@ -206,6 +206,7 @@ export function TripFormPanel(p: Props) {
         <label className="label" htmlFor="depart" style={{ marginBottom: 0 }}>Departure</label>
         <input id="depart" className="input" type="datetime-local" value={f.depart} disabled={disabled}
           onChange={e => p.setF('depart', e.target.value)} />
+        {errors.depart && <div className="error-text">{errors.depart}</div>}
         <div style={{ fontSize: 12, color: '#71717a', lineHeight: 1.5 }}>
           Departure and logs are in the time zone of your current location (home terminal time). The exact zone is shown after planning.
         </div>

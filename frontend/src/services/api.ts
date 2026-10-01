@@ -6,8 +6,8 @@ export type LocKey = 'current' | 'pickup' | 'dropoff'
 
 export class PlanError extends Error {
   kind: PlanErrorKind
-  field?: LocKey // set for location_not_found
-  constructor(kind: PlanErrorKind, message: string, field?: LocKey) {
+  field?: LocKey | 'cycle' | 'depart' // set for location_not_found / invalid_input
+  constructor(kind: PlanErrorKind, message: string, field?: PlanError['field']) {
     super(message)
     this.kind = kind
     this.field = field
@@ -69,6 +69,10 @@ export async function planTrip(f: TripForm, log: LogDetails): Promise<Trip> {
       if (e?.code === 'location_not_found') {
         const k = (['current', 'pickup', 'dropoff'] as const).find(x => e.field?.startsWith(x))
         throw new PlanError('noRoute', k ? `We couldn't find '${f[k]}'. Pick a suggestion or check the spelling.` : 'Location not found', k)
+      }
+      if (e?.code === 'invalid_input') {
+        const k = ({ current_location: 'current', pickup_location: 'pickup', dropoff_location: 'dropoff', current_cycle_used: 'cycle', start_datetime: 'depart' } as const)[e.field?.split(/[.[]/)[0] as 'start_datetime']
+        if (k && e.message) throw new PlanError('noRoute', e.message, k)
       }
       if (e?.code === 'no_route') throw new PlanError('noRoute', e.message ?? '')
       if (e?.code === 'routing_timeout') throw new PlanError('timeout', 'Timeout')

@@ -113,6 +113,16 @@ class PlanApiTests(SimpleTestCase):
         self.assertEqual(r.json()["error"]["message"], "Current cycle used must be between 0 and 70.")
         self.assertEqual(self.post(body(current_cycle_used=70)).status_code, 200)
 
+    def test_non_finite_numbers_rejected(self):
+        for bad in ("nan", "inf", "-inf"):
+            r = self.post(body(current_cycle_used=bad))
+            e = r.json()["error"]
+            self.assertEqual((r.status_code, e["code"], e["field"]), (400, "invalid_input", "current_cycle_used"), bad)
+            for k in ("lat", "lng"):
+                r = self.post(body(pickup_location={"label": "Chicago", "lat": 41.8, "lng": -87.6, k: bad}))
+                e = r.json()["error"]
+                self.assertEqual((r.status_code, e["code"], e["field"]), (400, "invalid_input", "pickup_location"), (k, bad))
+
     def test_empty_label(self):
         """Test 16: empty label is 400 and names the field."""
         r = self.post(body(pickup_location={"label": ""}))

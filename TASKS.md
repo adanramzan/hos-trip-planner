@@ -13,9 +13,11 @@ Part B is ticked as tasks land. Part A boxes are not ticked individually yet; tr
 
 - [x] Vite + React + TypeScript frontend and Django backend scaffolded (§71 Phase 1, partly)
 - [x] Frontend UI ported from the design: form, loading/empty/error states, results, map, timeline, log sheets, print view
-- [x] Frontend calls the real API (mock data removed) — not yet verified in a browser or against live ORS
-- [x] Backend: settings, ORS services, HOS scheduler, daily logs, plan/autocomplete/health endpoints; 74 tests pass (ORS mocked)
-- [ ] End-to-end run with a real `ORS_API_KEY`, deploy (T33), Loom and submission (T35)
+- [x] Frontend calls the real API (mock data removed) — verified against live ORS on 2026-10-02; browser check still pending
+- [x] Backend: settings, ORS services, HOS scheduler, daily logs, plan/autocomplete/health endpoints; all backend tests pass (ORS mocked)
+- [x] End-to-end run with a real `ORS_API_KEY` done
+- [ ] Deploy (T33)
+- [ ] Loom and submission (T35)
 
 Frontend status tags in Part A: **UI done, wire to API** = built but fed by mock data; **partial** / **missing** = real gap, with the file and line.
 

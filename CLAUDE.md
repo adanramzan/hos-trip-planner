@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-Implemented on branch `feat/hos-engine`; progress is tracked in `TASKS.md`. The spec is `full-stack-dev-assessment-complete-plan.md` (referenced below as §N); read the relevant section before changing behaviour.
+Implemented and merged to `main`; progress is tracked in `TASKS.md`. The spec is `full-stack-dev-assessment-complete-plan.md` (referenced below as §N); read the relevant section before changing behaviour.
 
 ## Commands
 

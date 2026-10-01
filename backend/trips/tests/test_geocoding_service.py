@@ -59,3 +59,26 @@ class GeocodeErrorTests(TestCase):
             with patch("requests.get", **kw):
                 with self.assertRaises(exc):
                     g.geocode("Omaha", field="pickup_location")
+
+
+class MalformedResponseTests(TestCase):
+    def bad_responses(self):
+        nonjson = MagicMock()
+        nonjson.json.side_effect = ValueError()
+        nonjson.raise_for_status.return_value = None
+        return [nonjson, ok([{"properties": FEATURE["properties"]}]), ok([{"geometry": FEATURE["geometry"]}]),
+                ok([{"geometry": {"coordinates": []}, "properties": {}}])]
+
+    def test_forward_and_autocomplete_raise_routing_unavailable(self):
+        from common.errors import RoutingUnavailable
+        for resp in self.bad_responses():
+            for call in (lambda: g.geocode("Omaha", field="pickup_location"), lambda: g.autocomplete("Oma")):
+                with patch("requests.get", return_value=resp):
+                    with self.assertRaises(RoutingUnavailable):
+                        call()
+
+    def test_reverse_malformed_falls_back(self):
+        for resp in self.bad_responses()[::2] + self.bad_responses()[3:]:  # has properties -> a label, not malformed
+            g._reverse_one.cache_clear()
+            with patch("requests.get", return_value=resp):
+                self.assertEqual(g.reverse_many([(10.0, 20.0)]), ["10.00, 20.00"])

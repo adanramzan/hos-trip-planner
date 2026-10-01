@@ -1,3 +1,5 @@
+import math
+
 from django.utils.dateparse import parse_datetime
 from rest_framework import serializers
 
@@ -6,10 +8,18 @@ LOG_FIELDS = ("driver_name", "co_driver_name", "carrier_name", "main_office_addr
 LABEL_MSG = "Enter a location."
 
 
+class FiniteFloatField(serializers.FloatField):
+    def to_internal_value(self, data):
+        v = super().to_internal_value(data)
+        if not math.isfinite(v):  # NaN/inf slip past min/max comparisons
+            self.fail("invalid")
+        return v
+
+
 class LocationSerializer(serializers.Serializer):
     label = serializers.CharField(error_messages={"required": LABEL_MSG, "blank": LABEL_MSG, "null": LABEL_MSG})
-    lat = serializers.FloatField(required=False, min_value=-90, max_value=90)
-    lng = serializers.FloatField(required=False, min_value=-180, max_value=180)
+    lat = FiniteFloatField(required=False, min_value=-90, max_value=90)
+    lng = FiniteFloatField(required=False, min_value=-180, max_value=180)
 
     def validate(self, d):
         if ("lat" in d) != ("lng" in d):
@@ -30,7 +40,7 @@ class PlanRequestSerializer(serializers.Serializer):
     pickup_location = _loc("Pickup")
     dropoff_location = _loc("Dropoff")
     _cycle_msg = "Current cycle used must be between 0 and 70."
-    current_cycle_used = serializers.FloatField(
+    current_cycle_used = FiniteFloatField(
         min_value=0, max_value=70,
         error_messages={"required": _cycle_msg, "invalid": _cycle_msg, "min_value": _cycle_msg, "max_value": _cycle_msg})
     start_datetime = serializers.CharField(required=False)

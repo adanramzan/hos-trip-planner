@@ -370,5 +370,21 @@ class SchedulerTests(unittest.TestCase):
                 self.plan(legs, cycle)
 
 
+class HomeTimezoneTests(unittest.TestCase):
+    def test_multi_day_trip_keeps_home_zone_and_splits_at_home_midnight(self):
+        """Test 21: events stay in the home zone; logs split at home midnight and report the zone."""
+        from services.eld_service import generate_daily_logs
+        events = plan_schedule([leg(10 * H), leg(30 * H)], 0, START)
+        for e in events:
+            self.assertEqual((e.start.tzinfo, e.end.tzinfo), (NY, NY))
+        logs = generate_daily_logs(events, NY)
+        self.assertGreaterEqual(len(logs), 3)
+        self.assertEqual([l["date"] for l in logs],
+                         [(events[0].start.date() + timedelta(days=i)).isoformat() for i in range(len(logs))])
+        self.assertEqual({l["timezone"] for l in logs}, {"America/New_York"})
+        for l in logs:
+            self.assertEqual(sum(l["totals"].values()), 24.0)
+
+
 if __name__ == "__main__":
     unittest.main()

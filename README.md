@@ -63,7 +63,7 @@ cp ../.env.example .env
 npm run dev
 ```
 
-The frontend runs on `http://localhost:5173` and will proxy API requests to the backend.
+The frontend runs on `http://localhost:5173` and calls the backend directly at the `VITE_API_BASE_URL`, with CORS allowed by the backend for the frontend origin.
 
 ## Environment Variables
 
@@ -116,13 +116,16 @@ All API calls to ORS (routing and geocoding) are made from the backend; the API 
 - **Pre-trip and post-trip inspections each take 15 minutes.**
 - **Home terminal time zone = current location's time zone** — the planner looks up the time zone of the current location and uses it for all log times and day boundaries (no zone changes mid-trip).
 - **Log days start and end at midnight, home terminal time.**
-- **All times are on a 15-minute grid** — drive segments round up, fuel/break segments round down.
+- **All times are on a 15-minute grid** — the trip start rounds up. A drive that ends by arriving at a waypoint (pickup, dropoff) rounds up. A drive cut short by an hours limit or by the fuel distance rounds down, so rounding never crosses a limit.
 - **Truck (HGV) routing** — the planner uses the OpenRouteService `driving-hgv` profile (respects truck restrictions).
 - **Departure is home-terminal time** — the form defaults to 08:00 tomorrow and the time entered is read as wall-clock time at the current location, whatever zone the browser is in. The API also accepts a time with an explicit UTC offset, and uses the current time if none is sent.
 - **Rolling 8-day history is unavailable** — the planner sees only the current cycle hours used and does not track which hours roll off. Hours are conservatively assumed to remain until the trip is complete.
 - **34-hour restart is used when the cycle is exhausted** — if both the 11-hour driving limit and the 70-hour cycle limit are hit, a 34-hour off-duty restart (CYCLE_RESTART) is inserted; it resets both clocks.
-- **Missing ELD metadata is not invented** — carrier name, driver name, vehicle number, and shipping unit are blank on the daily log sheets or clearly marked as demo placeholders.
+- **Log sheet header fields are optional inputs** — when left at their defaults the sheet shows demo values and marks them as demo: driver "Demo Driver", carrier "Demo Carrier LLC", main office "Demo City, ST", truck "TRUCK-001", trailer "TRL-001", shipping document "DEMO-0001", no co-driver. The "Shipper & Commodity" line is left blank.
 - **The 14-hour window and 70-hour cycle restrict driving only** — pickup and dropoff can occur even if either limit has been reached; they do not trigger a break or restart.
+- **Departure defaults to tomorrow 08:00 and is read as wall-clock time at the home terminal** — the current location's time zone.
+- **When a fuel stop and a rest are due at the same point, the fuel stop is taken first.**
+- **The home-terminal time zone is known only after planning** — it is printed on each log sheet and in the map popups.
 
 ## Limitations
 
@@ -133,7 +136,7 @@ All API calls to ORS (routing and geocoding) are made from the backend; the API 
 - **No yard moves** — all movement counts as duty.
 - **No ELD device integration** — this is a planning tool, not a real ELD.
 - **No historical 8-day duty record** — the planner does not import prior days' hours, so it cannot predict when hours will roll off during multi-day trips (conservative design).
-- **Daylight-saving transition days** — on DST transition days (roughly two per year), a calendar day is 23 or 25 wall-clock hours, not 24. The planner draws all 24 rows of the log sheet, so totals on those days can be off by up to 1 hour. The times are still correct.
+- **Daylight-saving transition days** — daily logs are built in wall-clock minutes, so every sheet totals exactly 24 hours. On the two days a year the clock changes, the real day is 23 or 25 hours, so that day's sheet is approximate.
 - **Hours do not roll off during the trip** — because rolling-8-day history is not provided, the planner assumes all current cycle hours remain for the entire trip (a conservative assumption).
 - **Fuel stops placed on the route** — fuel stops are inserted at computed route positions, not at real fuel stations. In production, use a real fuel-station database and reverse-geocoding to snap stops to actual stations.
 
@@ -146,7 +149,7 @@ cd backend
 .venv/bin/python manage.py test
 ```
 
-The HOS scheduler tests cover all 27 required test cases from the spec.
+The backend tests cover 26 of the 27 required test cases from the spec.
 
 ### Frontend
 
@@ -155,11 +158,13 @@ cd frontend
 npm test
 ```
 
+Test 13 (log grid geometry) is a frontend vitest test.
+
 ## Deployment
 
 **Frontend:** Deploy to [Vercel](https://vercel.com) (recommended for Next/Vite apps). Set `VITE_API_BASE_URL` to your production backend URL.
 
-**Backend:** Deploy to [Render](https://render.com) or [Railway](https://railway.app) or similar Python host. The backend must be always-on (do not use a free tier that sleeps when idle). Set environment variables on the platform:
+**Backend:** Deploy to [Render](https://render.com) or [Railway](https://railway.app) or similar Python host. An always-on host is recommended; the frontend pings `/api/health` on load to wake a sleeping host, and the first plan may be slow. Set environment variables on the platform:
 - `ORS_API_KEY`
 - `DJANGO_SECRET_KEY` (use a strong random string)
 - `DJANGO_DEBUG=false`
