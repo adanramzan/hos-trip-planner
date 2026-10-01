@@ -34,6 +34,14 @@ def mins(e):
     return (e.end.timestamp() - e.start.timestamp()) / 60
 
 
+def cycle_minutes(cycle_hours, events):
+    """Cycle used at the end of `events`, recomputed from on-duty time."""
+    c = cycle_hours * H
+    for e in events:
+        c = 0 if e.type == E.CYCLE_RESTART else c + (mins(e) if e.duty_status in ON_DUTY else 0)
+    return c
+
+
 def types(events):
     return [e.type for e in events]
 
@@ -52,7 +60,7 @@ def check_invariants(tc, legs, cycle_hours, events):
             tc.assertIsNotNone(t.tzinfo)
             tc.assertIs(t.tzinfo, tz)
             tc.assertEqual((t.minute % TIME_GRID_MINUTES, t.second, t.microsecond), (0, 0, 0))
-        tc.assertGreater(e.end, e.start)
+        tc.assertGreater(mins(e), 0, "no zero-duration events")
         if prev_end is not None:
             tc.assertEqual(e.start, prev_end, "events must be contiguous")
         prev_end = e.end
@@ -98,6 +106,7 @@ def check_invariants(tc, legs, cycle_hours, events):
         tc.assertEqual(p[0].type, E.PRE_TRIP_INSPECTION)
         tc.assertEqual(p[-1].type, E.POST_TRIP_INSPECTION)
         drives = [e for e in p if e.type == E.DRIVING]
+        tc.assertTrue(drives or {E.PICKUP, E.DROPOFF} & set(types(p)), "duty period with no driving")
         tc.assertLessEqual(sum(mins(e) for e in drives), MAX_DRIVING_HOURS * H)
         for d in drives:
             tc.assertLessEqual(d.end.timestamp() - p[0].start.timestamp(), MAX_DUTY_WINDOW_HOURS * 3600)
@@ -167,6 +176,12 @@ class SchedulerTests(unittest.TestCase):
         self.assertEqual((mins(ev[i]), ev[i].duty_status), (60, D.ON_DUTY_NOT_DRIVING))
         self.assertEqual(types(ev[i + 1:i + 4]),
                          [E.POST_TRIP_INSPECTION, E.CYCLE_RESTART, E.PRE_TRIP_INSPECTION])
+        self.assertEqual(cycle_minutes(68.5, ev[:i + 1]) - cycle_minutes(68.5, ev[:i]), 60)
+        # Exactly 1h: 15 min less input cycle leaves exactly one 15-min drive before the restart.
+        ev = self.plan([leg(15), leg(120)], cycle=68.25)
+        i = types(ev).index(E.PICKUP)
+        self.assertEqual([(e.type, mins(e)) for e in ev[i + 1:i + 4]],
+                         [(E.DRIVING, 15), (E.POST_TRIP_INSPECTION, 15), (E.CYCLE_RESTART, 34 * H)])
 
     def test_6_dropoff(self):
         """Test 6: DROPOFF is 1h on duty, followed by the post-trip inspection."""
@@ -174,6 +189,8 @@ class SchedulerTests(unittest.TestCase):
         d = ev[-2]
         self.assertEqual((d.type, mins(d), d.duty_status), (E.DROPOFF, 60, D.ON_DUTY_NOT_DRIVING))
         self.assertEqual(mins(ev[-1]), 15)
+        self.assertEqual(cycle_minutes(10, ev[:-1]) - cycle_minutes(10, ev[:-2]), 60)
+        self.assertEqual(cycle_minutes(10, ev), 10 * H + 15 + 30 + 60 + 90 + 60 + 15)
 
     def test_7_fuel(self):
         """Test 7: a 1,500-mile trip fuels before 1,000 miles."""
@@ -261,9 +278,12 @@ class SchedulerTests(unittest.TestCase):
         self.assertAlmostEqual(fuel.cumulative_miles, 620)
         self.assertEqual(mins(fuel), 30)
         self.assertIn("break", fuel.reason)
-        # milesSinceFuel and drivingSinceBreak reset: next 8h of driving runs without a stop.
+        # milesSinceFuel and drivingSinceBreak reset: the next stop needs 8h more driving or 950 mi.
         i = ev.index(fuel)
         self.assertEqual(ev[i + 1].type, E.DRIVING)
+        j = next(k for k in range(i + 1, len(ev)) if ev[k].type in (E.BREAK, E.FUEL))
+        driven = sum(mins(e) for e in ev[i + 1:j] if e.type == E.DRIVING)
+        self.assertTrue(driven >= 8 * H or ev[j].cumulative_miles - fuel.cumulative_miles >= 950 - 1e-6)
 
     def test_waypoint_rounding_never_crosses_a_limit(self):
         """Ruling: rounding a waypoint arrival up must not cross the 8h limit."""
@@ -284,6 +304,44 @@ class SchedulerTests(unittest.TestCase):
         self.assertNotIn(E.DAILY_REST, types(ev))
         self.assertEqual(types(ev).count(E.CYCLE_RESTART), 1)
 
+    def test_cycle_nearly_exhausted_mid_trip_restarts_instead_of_resting(self):
+        """Repro A: when a 10h rest would leave no cycle to drive after the next pre-trip, restart."""
+        ev = self.plan([leg(0), leg(900)], cycle=57.25)
+        self.assertNotIn(E.DAILY_REST, types(ev))
+        i = types(ev).index(E.CYCLE_RESTART)
+        self.assertEqual(types(ev[i - 1:i + 3]), [E.POST_TRIP_INSPECTION, E.CYCLE_RESTART,
+                                                 E.PRE_TRIP_INSPECTION, E.DRIVING])
+
+    def test_cycle_nearly_exhausted_at_start_restarts_first(self):
+        """Repro B: under 30 min of cycle (pre-trip + one 15-min drive) starts with the restart."""
+        for cycle in (69.51, 69.6, 69.74, 69.75, 69.9):
+            with self.subTest(cycle=cycle):
+                ev = self.plan([leg(60), leg(60)], cycle=cycle)
+                self.assertEqual(types(ev)[:3], [E.CYCLE_RESTART, E.PRE_TRIP_INSPECTION, E.DRIVING])
+        ev = self.plan([leg(60), leg(60)], cycle=69.5)  # exactly 30 min: pre-trip + 15 min of legal driving
+        self.assertEqual([(e.type, mins(e)) for e in ev[:2]], [(E.PRE_TRIP_INSPECTION, 15), (E.DRIVING, 15)])
+        ev = self.plan([leg(60), leg(60)], cycle=69.25)  # 45 min left: pre-trip + 15 + more driving
+        self.assertEqual([(e.type, mins(e)) for e in ev[:3]],
+                         [(E.PRE_TRIP_INSPECTION, 15), (E.DRIVING, 30), (E.POST_TRIP_INSPECTION, 15)])
+
+    def test_miles_match_leg_summary_when_steps_drift(self):
+        """Driving miles sum to leg.distance_miles even when ORS steps do not add up exactly."""
+        drift = [
+            Leg(150, 179.8, [Step(75, 90, (0, 1)), Step(75, 90, (1, 2))], [(0, 0), (0, 1), (0, 2)]),
+            Leg(1000, 1200, [Step(499.5, 600, (0, 1)), Step(499.5, 600, (1, 2))], [(0, 0), (0, 1), (0, 2)]),
+            Leg(130, 120, [Step(120, 120, (0, 1)), Step(10, 0, (1, 2))], [(0, 0), (0, 1), (0, 2)]),
+        ]
+        for d in drift:
+            with self.subTest(leg=d.distance_miles):
+                self.plan([leg(30), d])  # check_invariants asserts the miles sum
+
+    def test_start_in_repeated_dst_hour_keeps_fold(self):
+        """Rounding 01:05 CST (second 01:xx on 2026-11-01, fold=1) gives 01:15 CST, not 01:15 CDT."""
+        chi = ZoneInfo("America/Chicago")
+        start = datetime(2026, 11, 1, 1, 5, tzinfo=chi, fold=1)
+        ev = plan_schedule([leg(60), leg(60)], 0, start)
+        self.assertEqual(ev[0].start.timestamp() - start.timestamp(), 10 * 60)
+
     def test_dst_rest_is_real_hours(self):
         """Spring-forward night (2026-03-08 in New York): rests are 10 real hours, still on grid."""
         ev = self.plan([leg(0), leg(1500)], start=datetime(2026, 3, 7, 12, 0, tzinfo=NY))
@@ -303,6 +361,9 @@ class SchedulerTests(unittest.TestCase):
             ([leg(0), leg(3000, mph=62)], 30.4),
             ([leg(487.3), leg(487.3, mph=71)], 12.3),
             ([leg(13.7), leg(5000, mph=45, steps=11)], 55.55),
+            ([leg(0), leg(900)], 57.25),
+            ([leg(200), leg(1400)], 69.6),
+            ([leg(0), leg(4000, mph=70, steps=3)], 69.9),
         ]
         for legs, cycle in cases:
             with self.subTest(cycle=cycle, minutes=[l.duration_minutes for l in legs]):

@@ -74,3 +74,12 @@ class RouteTests(TestCase):
         post.assert_not_called()
         self.assertEqual((leg.distance_miles, leg.duration_minutes, leg.steps), (0, 0, []))
         self.assertEqual(len(leg.geometry), 1)
+
+
+class AuthTests(TestCase):
+    def test_bad_key_is_unavailable(self):
+        """Test 17: ORS 401/403 (bad or missing key) is a service problem, not 'no route'."""
+        for status in (401, 403):
+            with patch("requests.post", return_value=resp(status)):
+                with self.assertRaises(RoutingUnavailable):
+                    r.route([A, B])

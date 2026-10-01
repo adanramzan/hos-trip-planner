@@ -45,3 +45,17 @@ class GeocodeTests(TestCase):
         with patch("requests.get", side_effect=fake):
             names = g.reverse_many([(41.261, -95.931), (10.0, 20.0)])
         self.assertEqual(names, ["Omaha, NE", "10.00, 20.00"])
+
+
+class GeocodeErrorTests(TestCase):
+    def test_timeout_and_failures(self):
+        """Test 17: geocode maps timeout, other request errors and non-2xx to routing errors."""
+        from common.errors import RoutingTimeout, RoutingUnavailable
+        bad = MagicMock()
+        bad.raise_for_status.side_effect = requests.HTTPError()
+        for kw, exc in [({"side_effect": requests.Timeout()}, RoutingTimeout),
+                        ({"side_effect": requests.ConnectionError()}, RoutingUnavailable),
+                        ({"return_value": bad}, RoutingUnavailable)]:
+            with patch("requests.get", **kw):
+                with self.assertRaises(exc):
+                    g.geocode("Omaha", field="pickup_location")

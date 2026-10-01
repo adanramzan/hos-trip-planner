@@ -4,7 +4,7 @@ from functools import lru_cache
 import requests
 from django.conf import settings
 
-from common.errors import LocationNotFound
+from common.errors import LocationNotFound, RoutingTimeout, RoutingUnavailable
 from common.types import Location
 
 BASE = "https://api.openrouteservice.org/geocode"
@@ -31,7 +31,12 @@ def _get(path, params):
 
 
 def geocode(text, field=""):
-    features = _get("/search", {"text": text, "boundary.country": "US", "size": 1})
+    try:
+        features = _get("/search", {"text": text, "boundary.country": "US", "size": 1})
+    except requests.Timeout:
+        raise RoutingTimeout()
+    except requests.RequestException:
+        raise RoutingUnavailable()
     if not features:
         raise LocationNotFound(field)
     return _location(features[0])

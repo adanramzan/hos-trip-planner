@@ -33,10 +33,12 @@ def _ceil(m):
 
 
 def round_up_to_grid(t: datetime) -> datetime:
-    base = t.replace(second=0, microsecond=0)
-    if base != t:
+    """Round up in UTC (keeps DST fold right); equals the local grid for quarter-hour offsets."""
+    u = t.astimezone(timezone.utc)
+    base = u.replace(second=0, microsecond=0)
+    if base != u:
         base += timedelta(minutes=1)
-    return base + timedelta(minutes=(-base.minute) % GRID)
+    return (base + timedelta(minutes=(-base.minute) % GRID)).astimezone(t.tzinfo)
 
 
 def _plus(t, minutes):
@@ -71,7 +73,9 @@ class _State:
         if type_ == E.DRIVING:
             leg = self.legs[self.leg]
             end_min = leg.duration_minutes if real >= leg.duration_minutes - leg_start - EPS else leg_start + real
-            distance = miles_at(leg, end_min) - miles_at(leg, leg_start)
+            # At the leg end use the leg summary: ORS step sums can drift from it.
+            end_miles = leg.distance_miles if end_min == leg.duration_minutes else miles_at(leg, end_min)
+            distance = end_miles - miles_at(leg, leg_start)
             self.leg_min = end_min
             self.daily += minutes
             self.since_break += minutes
@@ -109,6 +113,20 @@ class _State:
     def cycle_left(self):
         return _floor(MAX_CYCLE_HOURS * MINUTES_PER_HOUR - self.cycle)
 
+    def restart_needed(self, rest_due):
+        """True when the cycle cannot cover the on-duty overhead before driving plus one grid step.
+
+        Overhead: pre-trip if off duty; post-trip + pre-trip if a 10h rest is due (the restart then
+        replaces the rest, so no duty period is wasted on a rest after which nothing can be driven).
+        """
+        if self.window_start is None:
+            overhead = PRE_TRIP_INSPECTION_MINUTES
+        elif rest_due:
+            overhead = POST_TRIP_INSPECTION_MINUTES + PRE_TRIP_INSPECTION_MINUTES
+        else:
+            overhead = 0
+        return self.cycle_left() - overhead < GRID
+
     def drive_leg(self, to):
         leg = self.legs[self.leg]
         while leg.duration_minutes - self.leg_min > EPS:
@@ -116,10 +134,19 @@ class _State:
             window_left = MAX_DUTY_WINDOW_HOURS * MINUTES_PER_HOUR - (
                 (self.t.timestamp() - self.window_start.timestamp()) / 60 if self.window_start else 0)
             daily_left = MAX_DRIVING_HOURS * MINUTES_PER_HOUR - self.daily
-            if self.cycle_left() <= 0:
+            remaining = leg.duration_minutes - self.leg_min
+            fuel_at = miles_at(leg, self.leg_min) + FUEL_TRIGGER_MILES - self.miles_since_fuel
+            fuel_real = minutes_at(leg, fuel_at) - self.leg_min if fuel_at < leg.distance_miles else math.inf
+            fuel_cut = _floor(fuel_real) if fuel_real < math.inf else math.inf  # rounded down: 1,000 mi never exceeded
+            if fuel_cut <= 0:  # fuel is non-driving work: never blocked, and done before any rest
+                self.on_duty()
+                self.add(E.FUEL, FUEL_DURATION_MINUTES, "Fuel required before the 1,000-mile limit")
+                continue
+            rest_due = daily_left <= 0 or window_left <= 0
+            if self.restart_needed(rest_due):
                 self.rest(E.CYCLE_RESTART, "70-hour cycle limit reached: 34-hour restart")
                 continue
-            if daily_left <= 0 or window_left <= 0:
+            if rest_due:
                 why = "11-hour driving limit reached" if daily_left <= 0 else "14-hour duty window reached"
                 self.rest(E.DAILY_REST, why)
                 continue
@@ -130,13 +157,6 @@ class _State:
                     self.add(E.FUEL, FUEL_DURATION_MINUTES, "Fuel stop doubles as the 30-minute break after 8 hours of driving")
                 else:
                     self.add(E.BREAK, BREAK_DURATION_MINUTES, "30-minute break after 8 hours of driving")
-                continue
-            remaining = leg.duration_minutes - self.leg_min
-            fuel_at = miles_at(leg, self.leg_min) + FUEL_TRIGGER_MILES - self.miles_since_fuel
-            fuel_real = minutes_at(leg, fuel_at) - self.leg_min if fuel_at < leg.distance_miles else math.inf
-            fuel_cut = _floor(fuel_real) if fuel_real < math.inf else math.inf  # rounded down: 1,000 mi never exceeded
-            if fuel_cut <= 0:
-                self.add(E.FUEL, FUEL_DURATION_MINUTES, "Fuel required before the 1,000-mile limit")
                 continue
             allowed = min(self.cycle_left(), daily_left, window_left, break_left)  # all on the grid
             if fuel_real < remaining and fuel_cut <= allowed:
@@ -150,7 +170,7 @@ class _State:
 def plan_schedule(legs: List[Leg], cycle_used_hours: float, start: datetime) -> List[TripEvent]:
     """legs = [current->pickup, pickup->dropoff]; start is tz-aware in the home terminal zone."""
     s = _State(legs, cycle_used_hours, start)
-    if s.cycle_left() <= 0 and any(l.duration_minutes > EPS for l in legs):
+    if s.restart_needed(False) and any(l.duration_minutes > EPS for l in legs):
         s.rest(E.CYCLE_RESTART, "Starting with a full 70-hour cycle: 34-hour restart")
     s.on_duty()
     s.drive_leg("pickup")

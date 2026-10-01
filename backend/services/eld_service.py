@@ -31,14 +31,19 @@ def generate_daily_logs(events: List[TripEvent], home_tz: ZoneInfo) -> List[dict
         start, end = _wall(ev.start, home_tz), _wall(ev.end, home_tz)
         total_min = (end - start).total_seconds() / MINUTES_PER_HOUR
         name = ev.location.name if ev.location and ev.location.name else ""
-        cur = start
-        while cur < end:
+        cur, first = start, True
+        while first or cur < end:  # always one pass so zero/negative-width (DST) events keep their remark
+            first = False
             midnight = datetime.combine(cur.date() + timedelta(days=1), time())
             nxt = min(end, midnight)
             s = int((cur - datetime.combine(cur.date(), time())).total_seconds() // MINUTES_PER_HOUR)
             e = s + int((nxt - cur).total_seconds() // MINUTES_PER_HOUR)
-            d = days.setdefault(cur.date(), {"pieces": [], "remarks": [], "locs": []})
-            miles = ev.distance_miles * (e - s) / total_min if ev.duty_status == DutyStatus.DRIVING else 0.0
+            d = days.setdefault(cur.date(), {"pieces": [], "remarks": [], "locs": [], "pos": 0})
+            # DST fall-back runs the wall clock backwards: clamp to this day's running position (documented limitation).
+            s = min(max(s, d["pos"]), MINUTES_PER_DAY)
+            e = min(max(e, s), MINUTES_PER_DAY)
+            d["pos"] = e
+            miles = ev.distance_miles * ((e - s) / total_min if total_min > 0 else 1) if ev.duty_status == DutyStatus.DRIVING else 0.0
             d["pieces"].append((ev.duty_status.value, s, e, miles))
             if cur == start:
                 d["remarks"].append({"minute": s, "location": name, "label": LABELS[ev.type]})
@@ -51,13 +56,17 @@ def generate_daily_logs(events: List[TripEvent], home_tz: ZoneInfo) -> List[dict
     for date in sorted(days):  # events are contiguous, so every day in [first, last] exists
         d = days[date]
         segs, pos = [], 0
-        pieces = d["pieces"] + [(DutyStatus.OFF_DUTY.value, MINUTES_PER_DAY, MINUTES_PER_DAY, 0.0)]
-        for status, s, e, _ in pieces:
-            if s > pos:  # leading (day 1) / trailing (last day) fill
-                segs.append({"status": DutyStatus.OFF_DUTY.value, "start_minute": pos, "end_minute": s})
+        for status, s, e, _ in d["pieces"]:
+            if s > pos:  # leading fill on day 1; a mid-day gap (DST spring-forward) extends the previous segment
+                if segs:
+                    segs[-1]["end_minute"] = s
+                else:
+                    segs.append({"status": DutyStatus.OFF_DUTY.value, "start_minute": 0, "end_minute": s})
             if e > s:
                 segs.append({"status": status, "start_minute": s, "end_minute": e})
             pos = max(pos, e)
+        if pos < MINUTES_PER_DAY:  # trailing fill on the last day
+            segs.append({"status": DutyStatus.OFF_DUTY.value, "start_minute": pos, "end_minute": MINUTES_PER_DAY})
         merged = []
         for seg in segs:
             if merged and merged[-1]["status"] == seg["status"] and merged[-1]["end_minute"] == seg["start_minute"]:

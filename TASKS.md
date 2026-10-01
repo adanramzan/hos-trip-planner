@@ -9,10 +9,13 @@ Checklist form of `full-stack-dev-assessment-complete-plan.md` (the spec; `§N` 
 
 ## Status (2026-10-02)
 
+Part B is ticked as tasks land. Part A boxes are not ticked individually yet; treat Part B and the test matrix as the progress record.
+
 - [x] Vite + React + TypeScript frontend and Django backend scaffolded (§71 Phase 1, partly)
 - [x] Frontend UI ported from the design: form, loading/empty/error states, results, map, timeline, log sheets, print view
-- [ ] Frontend runs on real data — today it is three mock trips in `frontend/src/services/mockData.ts`
-- [ ] Backend logic — `backend/` is a bare scaffold: no settings/env/CORS config, no services, no endpoints, no tests
+- [x] Frontend calls the real API (mock data removed) — not yet verified in a browser or against live ORS
+- [x] Backend: settings, ORS services, HOS scheduler, daily logs, plan/autocomplete/health endpoints; 74 tests pass (ORS mocked)
+- [ ] End-to-end run with a real `ORS_API_KEY`, deploy (T33), Loom and submission (T35)
 
 Frontend status tags in Part A: **UI done, wire to API** = built but fed by mock data; **partial** / **missing** = real gap, with the file and line.
 
@@ -405,7 +408,7 @@ Decide these before or during the task named; each is a place the spec is silent
 ### Phase 1 — Project setup (§71)
 
 #### T1. Django settings, env, CORS, health endpoint
-- [ ] Settings read all env vars via python-dotenv, CORS locked to configured origins, DRF + trips registered, `.env.example` written, `GET /api/health` returns 200
+- [x] Settings read all env vars via python-dotenv, CORS locked to configured origins, DRF + trips registered, `.env.example` written, `GET /api/health` returns 200
 - Files: backend/config/settings.py, backend/config/urls.py, backend/trips/urls.py, backend/trips/views.py, backend/.env.example (or repo-root .env.example), .gitignore
 - Spec: §27, §64, §65
 - Tests: none (manual curl of /api/health plus a trivial Django test client check)
@@ -413,25 +416,25 @@ Decide these before or during the task named; each is a place the spec is silent
 ### Phase 2 — Routing (§71)
 
 #### T2. Constants and enums
-- [ ] `constants.py` with every §31 value; `enums.py` with EventType, DutyStatus and the event-to-duty map (§14)
+- [x] `constants.py` with every §31 value; `enums.py` with EventType, DutyStatus and the event-to-duty map (§14)
 - Files: backend/common/constants.py, backend/common/enums.py, backend/trips/tests/test_enums.py
 - Spec: §12, §13, §14, §31
 - Tests: Test 24 (mapping part: DAILY_REST is SLEEPER_BERTH)
 
 #### T3. Geocoding service and autocomplete proxy
-- [ ] ORS geocode + autocomplete wrapper with timeout and error mapping; `GET /api/geocode/autocomplete?q=` returns label/lat/lng suggestions; coordinate-bearing locations skip geocoding
+- [x] ORS geocode + autocomplete wrapper with timeout and error mapping; `GET /api/geocode/autocomplete?q=` returns label/lat/lng suggestions; coordinate-bearing locations skip geocoding
 - Files: backend/services/geocoding_service.py, backend/trips/views.py, backend/trips/urls.py, backend/trips/tests/test_geocode.py
 - Spec: §27, §29, §32, §64
 - Tests: 16 (unresolvable location mapped to structured error, with mocked ORS)
 
 #### T4. Routing service (ORS driving-hgv, per-leg fallback)
-- [ ] `route(waypoints)` returns distance, duration, geometry, steps per leg using driving-hgv; zero-length legs short-circuited; provider timeout/503/bad payload/no route raise typed errors; per-leg fallback when a combined call fails
+- [x] `route(waypoints)` returns distance, duration, geometry, steps per leg using driving-hgv; zero-length legs short-circuited; provider timeout/503/bad payload/no route raise typed errors; per-leg fallback when a combined call fails
 - Files: backend/services/routing_service.py, backend/common/errors.py, backend/trips/tests/test_routing_service.py
 - Spec: §29, §31, §32, Test 17, Test 25
 - Tests: 17, 25 (routing half: no error when current == pickup)
 
 #### T5. Home terminal time zone resolution
-- [ ] `home_timezone(lat, lng)` returns a ZoneInfo via timezonefinder, with a documented fallback; start_datetime parsed/localized into that zone
+- [x] `home_timezone(lat, lng)` returns a ZoneInfo via timezonefinder, with a documented fallback; start_datetime parsed/localized into that zone
 - Files: backend/services/timezone_service.py (or inside geocoding_service.py), backend/trips/tests/test_timezone.py
 - Spec: §5.19, §29 (invalid start datetime)
 - Tests: 21 (zone part: New York current location gives America/New_York)
@@ -439,67 +442,67 @@ Decide these before or during the task named; each is a place the spec is silent
 ### Phase 3 — HOS engine (§71)
 
 #### T6. TripEvent and scheduler state types
-- [ ] Framework-free TripEvent and SchedulerState dataclasses with the §11 and §15 fields, tz-aware datetimes only
+- [x] Framework-free TripEvent and SchedulerState dataclasses with the §11 and §15 fields, tz-aware datetimes only
 - Files: backend/services/hos_scheduler.py
 - Spec: §11, §15, §5.19, §9
 - Tests: none
 
 #### T7. Starting state and 15-min grid helpers
-- [ ] `init_state` (§5.20 values, start rounded up to 15 min, converted to home zone) and rounding helpers (up for waypoint segments, down for fuel-cut segments)
+- [x] `init_state` (§5.20 values, start rounded up to 15 min, converted to home zone) and rounding helpers (up for waypoint segments, down for fuel-cut segments)
 - Files: backend/services/hos_scheduler.py, backend/trips/tests/test_scheduler_grid.py
 - Spec: §5.20, §5.21, §3.1, §5.19
 - Tests: Test 22 (start/grid part)
 
 #### T8. Event emitter, duty-window and cycle accounting, and inspections
-- [ ] `add_event` that advances time and updates cycleUsed, dutyWindowStart (set by first work event), contiguousNonDrivingMinutes/drivingSinceBreak per §5.6; pre-trip at trip start and post-trip at trip end
+- [x] `add_event` that advances time and updates cycleUsed, dutyWindowStart (set by first work event), contiguousNonDrivingMinutes/drivingSinceBreak per §5.6; pre-trip at trip start and post-trip at trip end
 - Files: backend/services/hos_scheduler.py, backend/trips/tests/test_scheduler_core.py
 - Spec: §5.6, §5.7, §5.18, §5.2, §5.13
 - Tests: Test 23 (partial), Test 1
 
 #### T9. Drive-segment calculator and 11h limit
-- [ ] `allowed_drive_minutes` (§17 min of constraints with rounding) and driving loop; 11h cap forces POST_TRIP, 10h DAILY_REST (Sleeper), PRE_TRIP with reset of counters
+- [x] `allowed_drive_minutes` (§17 min of constraints with rounding) and driving loop; 11h cap forces POST_TRIP, 10h DAILY_REST (Sleeper), PRE_TRIP with reset of counters
 - Files: backend/services/hos_scheduler.py, backend/trips/tests/test_scheduler_11h.py
 - Spec: §5.1, §5.4, §5.5, §16, §17, §22
 - Tests: Test 3, Test 24, Test 23
 
 #### T10. 14-hour window (driving-only check)
-- [ ] 14h window expiry blocks driving only and triggers the rest sequence; verify no driving past window and non-driving work still allowed
+- [x] 14h window expiry blocks driving only and triggers the rest sequence; verify no driving past window and non-driving work still allowed
 - Files: backend/services/hos_scheduler.py, backend/trips/tests/test_scheduler_14h.py
 - Spec: §5.2, §5.3, §19, §22
 - Tests: Test 4
 
 #### T11. 8h driving / 30-min break
-- [ ] BREAK (30 min, Off Duty) inserted only when 8h driving accrues with no qualifying >= 30 min non-driving period since
+- [x] BREAK (30 min, Off Duty) inserted only when 8h driving accrues with no qualifying >= 30 min non-driving period since
 - Files: backend/services/hos_scheduler.py, backend/trips/tests/test_scheduler_break.py
 - Spec: §5.6, §5.7, §23
 - Tests: Test 2, Test 1
 
 #### T12. Pickup event and break reset
-- [ ] PICKUP (60 min on duty, cycle +1h, drivingSinceBreak = 0, never blocked) and the current-equals-pickup case
+- [x] PICKUP (60 min on duty, cycle +1h, drivingSinceBreak = 0, never blocked) and the current-equals-pickup case
 - Files: backend/services/hos_scheduler.py, backend/trips/tests/test_scheduler_pickup.py
 - Spec: §5.8, §20, §18
 - Tests: Test 5, Test 18, Test 25
 
 #### T13. Dropoff and trip finish
-- [ ] DROPOFF (60 min) + POST_TRIP (15 min), cycle +1.25h, never blocked by expired window or exhausted cycle, no rest/restart before it
+- [x] DROPOFF (60 min) + POST_TRIP (15 min), cycle +1.25h, never blocked by expired window or exhausted cycle, no rest/restart before it
 - Files: backend/services/hos_scheduler.py, backend/trips/tests/test_scheduler_dropoff.py
 - Spec: §5.9, §21, §22, §5.2, §5.13
 - Tests: Test 6, Test 19, Test 20
 
 #### T14. 70-hour cycle and 34-hour restart
-- [ ] Cycle check before driving; exhausted cycle produces POST_TRIP, CYCLE_RESTART (34h Off Duty), PRE_TRIP; restart wins over 10h rest; input 70 starts with restart; display max(0, 70 - cycleUsed)
+- [x] Cycle check before driving; exhausted cycle produces POST_TRIP, CYCLE_RESTART (34h Off Duty), PRE_TRIP; restart wins over 10h rest; input 70 starts with restart; display max(0, 70 - cycleUsed)
 - Files: backend/services/hos_scheduler.py, backend/trips/tests/test_scheduler_cycle.py
 - Spec: §5.13, §5.14, §5.15, §5.16, §17, §19, §22
 - Tests: Test 9, Test 10, Test 20
 
 #### T15. Fuel trigger and break/fuel merge
-- [ ] FUEL (30 min) forced at 950 mi with fuel-cut segments rounded down; at a due break with milesSinceFuel >= 600 insert FUEL instead of BREAK; fuel resets milesSinceFuel and drivingSinceBreak
+- [x] FUEL (30 min) forced at 950 mi with fuel-cut segments rounded down; at a due break with milesSinceFuel >= 600 insert FUEL instead of BREAK; fuel resets milesSinceFuel and drivingSinceBreak
 - Files: backend/services/hos_scheduler.py, backend/trips/tests/test_scheduler_fuel.py
 - Spec: §5.10, §5.11, §5.12, §24, §26, §5.21
 - Tests: Test 7, Test 8, Test 14, Test 27
 
 #### T16. Full-trip scheduler assembly and invariants
-- [ ] `plan_schedule(legs, cycle_used, start, home_tz)` runs current to pickup to dropoff and a property test asserts grid multiples, tz-aware times, 24h-per-day sums and inspection bookending
+- [x] `plan_schedule(legs, cycle_used, start, home_tz)` runs current to pickup to dropoff and a property test asserts grid multiples, tz-aware times, 24h-per-day sums and inspection bookending
 - Files: backend/services/hos_scheduler.py, backend/trips/tests/test_scheduler_invariants.py
 - Spec: §6, §18, §5.19, §5.21, §10
 - Tests: Test 12, Test 21 (scheduler part), Test 22, Test 23, Test 1
@@ -507,8 +510,8 @@ Decide these before or during the task named; each is a place the spec is silent
 ### Phase 4 — Canonical events and stop positions (§71)
 
 #### T17. Route position interpolation
-- [ ] `position_at(steps, geometry, elapsed_minutes)` mapping elapsed driving time to lat/lon via per-step time fraction and haversine polyline walk, returning cumulative miles
-- [ ] Reverse geocode each stop once, cached by rounded coordinates, concurrently, with a coordinate-label fallback (§25)
+- [x] `position_at(steps, geometry, elapsed_minutes)` mapping elapsed driving time to lat/lon via per-step time fraction and haversine polyline walk, returning cumulative miles
+- [x] Reverse geocode each stop once, cached by rounded coordinates, concurrently, with a coordinate-label fallback (§25)
 - Files: backend/services/route_position.py, backend/trips/tests/test_route_position.py
 - Spec: §25, §26
 - Tests: Test 26
@@ -516,19 +519,19 @@ Decide these before or during the task named; each is a place the spec is silent
 ### Phase 5 — ELD data and plan endpoint (§71)
 
 #### T18. ELD generator
-- [ ] `generate_daily_logs(events, home_tz)` splits at home midnight, fills to 24h with OFF_DUTY, snaps to the 15-min grid, emits segments, status totals, remarks, daily miles, and asserts the 24h sum
+- [x] `generate_daily_logs(events, home_tz)` splits at home midnight, fills to 24h with OFF_DUTY, snaps to the 15-min grid, emits segments, status totals, remarks, daily miles, and asserts the 24h sum
 - Files: backend/services/eld_service.py, backend/trips/tests/test_eld_service.py
 - Spec: §34, §35, §36, §37, §14, §5.19, §5.21
 - Tests: 11, 12, 21 (day-split and header zone), 22 (row/grid part), 24
 
 #### T19. Serializers and plan view with structured errors
-- [ ] Request serializer validates locations, cycle 0–70 (decimals ok), start_datetime, log_details; custom exception handler returns `{error: {code, message}}` for every §29 case; no stack traces
+- [x] Request serializer validates locations, cycle 0–70 (decimals ok), start_datetime, log_details; custom exception handler returns `{error: {code, message}}` for every §29 case; no stack traces
 - Files: backend/trips/serializers.py, backend/trips/views.py, backend/trips/exceptions.py, backend/config/settings.py (EXCEPTION_HANDLER), backend/trips/tests/test_plan_api.py
 - Spec: §27, §29
 - Tests: 15, 16, 17
 
 #### T20. Response assembly and end-to-end plan endpoint
-- [ ] Plan view wires geocode, route, home zone, hos_scheduler, route_position, eld_service; assembles trip summary (distance, driving_hours, elapsed_hours, days, fuel_stops, rest_stops) from events only; returns `trip`/`route`/`events`/`daily_logs`
+- [x] Plan view wires geocode, route, home zone, hos_scheduler, route_position, eld_service; assembles trip summary (distance, driving_hours, elapsed_hours, days, fuel_stops, rest_stops) from events only; returns `trip`/`route`/`events`/`daily_logs`
 - Files: backend/trips/views.py, backend/trips/serializers.py (response), backend/trips/tests/test_plan_api.py
 - Spec: §28, §32, §33, CLAUDE.md core architecture
 - Tests: 21, 25 (end to end with mocked ORS), 12, 22 (assertions on full response)
@@ -536,67 +539,67 @@ Decide these before or during the task named; each is a place the spec is silent
 ### Phases 6–9 — Frontend: mock to real, then gaps (§71)
 
 #### T21. API client with base URL and error mapping
-- [ ] Replace the mock `planTrip` with `fetch` to `${VITE_API_BASE_URL}/api/trips/plan`, with a timeout, mapping 404/422 route errors to `noRoute`, 5xx/network to `unavailable`, abort to `timeout`, anything else to `unexpected`, and never surfacing raw JSON; add `.env.example` entry
+- [x] Replace the mock `planTrip` with `fetch` to `${VITE_API_BASE_URL}/api/trips/plan`, with a timeout, mapping 404/422 route errors to `noRoute`, 5xx/network to `unavailable`, abort to `timeout`, anything else to `unexpected`, and never surfacing raw JSON; add `.env.example` entry
 - Files: frontend/src/services/api.ts, frontend/.env.example
 - Spec: §27, §28, §54, §56
 - Tests: none
 
 #### T22. Adapter from API response to the existing view model
-- [ ] Add `fromApi(resp)` that converts `TripEvent[]` (ISO datetimes, API duty statuses, event types) into the existing `TripDef`/`RawEvent` shape (hour offsets from day-1 home-terminal midnight, `off|sb|d|on`, `Kind`), then reuse `derive()` unchanged; carry per-event lat/lng and daily-log totals through, and clamp cycle remaining at 0
+- [x] Add `fromApi(resp)` that converts `TripEvent[]` (ISO datetimes, API duty statuses, event types) into the existing `TripDef`/`RawEvent` shape (hour offsets from day-1 home-terminal midnight, `off|sb|d|on`, `Kind`), then reuse `derive()` unchanged; carry per-event lat/lng and daily-log totals through, and clamp cycle remaining at 0
 - Files: frontend/src/utils/adapter.ts (new), frontend/src/types/trip.ts, frontend/src/utils/trip.ts, frontend/src/services/api.ts
 - Spec: §11–§14, §27, §28, §49
 - Tests: none
 
 #### T23. Time zone from the API
-- [ ] Take zone name, abbreviation and per-stop UTC offset from the response and drop the hard-coded `TZ` table and the `tzOffset` integer on places; update the form helper text, the popup local-time line and the arrival card
+- [x] Take zone name, abbreviation and per-stop UTC offset from the response and drop the hard-coded `TZ` table and the `tzOffset` integer on places; update the form helper text, the popup local-time line and the arrival card
 - Files: frontend/src/utils/trip.ts, frontend/src/components/TripFormPanel.tsx, frontend/src/components/RouteMap.tsx, frontend/src/types/trip.ts
 - Spec: §5.19, §47, §49
 - Tests: none
 
 #### T24. Route polyline and marker positions from API
-- [ ] Draw the route from the ORS geometry in the response (split at pickup for the empty/loaded styling) and place markers at the API's interpolated stop coordinates instead of `trip.places[name]`; fit bounds to the geometry
+- [x] Draw the route from the ORS geometry in the response (split at pickup for the empty/loaded styling) and place markers at the API's interpolated stop coordinates instead of `trip.places[name]`; fit bounds to the geometry
 - Files: frontend/src/components/RouteMap.tsx, frontend/src/types/trip.ts, frontend/src/utils/adapter.ts
 - Spec: §25, §45, §46
 - Tests: none
 
 #### T25. Send departure time with UTC offset
-- [ ] Default departure to the current local time and serialise it as ISO-8601 with offset (e.g. `2026-10-01T08:00:00-04:00`) in the plan request
+- [x] Default departure to the current local time and serialise it as ISO-8601 with offset (e.g. `2026-10-01T08:00:00-04:00`) in the plan request
 - Files: frontend/src/App.tsx, frontend/src/services/api.ts, frontend/src/types/trip.ts
 - Spec: §3.1
 - Tests: none
 
 #### T26. Real autocomplete with coordinates
-- [ ] `suggest()` calls `GET /api/geocode/autocomplete?q=` after about 300 ms debounce and 3+ chars, ignores stale responses, and returns label plus coordinates; the form keeps the picked suggestion's coordinates and sends them with the plan request; replace the `findPlace`-based validation with "a suggestion was picked or free text will be geocoded server-side"
+- [x] `suggest()` calls `GET /api/geocode/autocomplete?q=` after about 300 ms debounce and 3+ chars, ignores stale responses, and returns label plus coordinates; the form keeps the picked suggestion's coordinates and sends them with the plan request; replace the `findPlace`-based validation with "a suggestion was picked or free text will be geocoded server-side"
 - Files: frontend/src/services/api.ts, frontend/src/components/TripFormPanel.tsx, frontend/src/types/trip.ts, frontend/src/App.tsx
 - Spec: §2, §55
 - Tests: none
 
 #### T27. Health ping on load
-- [ ] Fire `GET /api/health` once on mount (failures ignored) to wake a sleeping backend; keep the existing 5-second "Waking up the server" message on the plan request
+- [x] Fire `GET /api/health` once on mount (failures ignored) to wake a sleeping backend; keep the existing 5-second "Waking up the server" message on the plan request
 - Files: frontend/src/App.tsx, frontend/src/services/api.ts
 - Spec: §52
 - Tests: none
 
 #### T28. Log sheet completeness and Test 13 unit check
-- [ ] Render driver name, co-driver, certification line, and 13–23 hour labels; compute the "= 24" check from the row totals and assert it; extract the x-coordinate function out of the component so a unit test can import it, then add a vitest check that 06:00 and 12:00 land at 25% and 50% of graph width
+- [x] Render driver name, co-driver, certification line, and 13–23 hour labels; compute the "= 24" check from the row totals and assert it; extract the x-coordinate function out of the component so a unit test can import it, then add a vitest check that 06:00 and 12:00 land at 25% and 50% of graph width
 - Files: frontend/src/components/LogSheet.tsx, frontend/src/utils/logGeometry.ts (new), frontend/src/utils/logGeometry.test.ts (new), frontend/package.json
 - Spec: §40, §43, §44
 - Tests: 13
 
 #### T29. Summary cards per §49
-- [ ] Split the combined "Stops" card into Fuel Stops, Breaks and Daily Rests, and show Cycle Used (input) and Cycle Remaining as `max(0, 70 - cycleUsed)`
+- [x] Split the combined "Stops" card into Fuel Stops, Breaks and Daily Rests, and show Cycle Used (input) and Cycle Remaining as `max(0, 70 - cycleUsed)`
 - Files: frontend/src/utils/trip.ts, frontend/src/components/Results.tsx
 - Spec: §49, §5.15
 - Tests: none
 
 #### T30. Responsive layout for tablet and mobile
-- [ ] Add breakpoints (for example 1024 px and 640 px) that stack the form above the hero, the map above the timeline, shrink the map height, collapse the stats, checks and day-stats grids, make the drawer full width, and let the log sheet scroll or scale horizontally
+- [x] Add breakpoints (for example 1024 px and 640 px) that stack the form above the hero, the map above the timeline, shrink the map height, collapse the stats, checks and day-stats grids, make the drawer full width, and let the log sheet scroll or scale horizontally
 - Files: frontend/src/index.css, frontend/src/App.tsx, frontend/src/components/Results.tsx
 - Spec: §51
 - Tests: none
 
 #### T31. Align sample presets with the spec and remove mockData
-- [ ] Make the three chips plain form presets (short single-day; Boston, MA > Chicago, IL > Los Angeles, CA at cycle 15; cycle 65) that fill the form and call the real API; delete `mockData.ts` and the fixture imports, and replace the ghost sheet in `EmptyHero` with a small static fixture or none; clean up `PRINT` last-page break and add the demo-values note to the README
+- [x] Make the three chips plain form presets (short single-day; Boston, MA > Chicago, IL > Los Angeles, CA at cycle 15; cycle 65) that fill the form and call the real API; delete `mockData.ts` and the fixture imports, and replace the ghost sheet in `EmptyHero` with a small static fixture or none; clean up `PRINT` last-page break and add the demo-values note to the README
 - Files: frontend/src/services/mockData.ts (delete), frontend/src/App.tsx, frontend/src/components/TripFormPanel.tsx, frontend/src/components/PlannerPane.tsx, frontend/src/services/api.ts, README.md
 - Spec: §44, §53, §56
 - Tests: none
@@ -604,7 +607,7 @@ Decide these before or during the task named; each is a place the spec is silent
 ### Phase 10 — Testing (§71)
 
 #### T32. Full test suite green
-- [ ] All 27 tests in the matrix below exist and pass (`python manage.py test` in backend, `npx vitest run` in frontend)
+- [x] All 27 tests in the matrix below exist and pass (`python manage.py test` in backend, `npx vitest run` in frontend)
 - Files: backend/trips/tests/, frontend/src/utils/logGeometry.test.ts
 - Spec: §59, §60
 - Tests: 1–27
@@ -623,11 +626,11 @@ Decide these before or during the task named; each is a place the spec is silent
 ### Phase 12 — Submission (§71)
 
 #### T34. README
-- [ ] Write README.md at repo root
-- [ ] Cover §61 required sections
-- [ ] Document §62 assumptions (each line, one bullet)
-- [ ] Document §63 limitations (each line, one bullet)
-- [ ] List §76 review assumptions (all 10)
+- [x] Write README.md at repo root
+- [x] Cover §61 required sections
+- [x] Document §62 assumptions (each line, one bullet)
+- [x] Document §63 limitations (each line, one bullet)
+- [x] List §76 review assumptions (all 10)
 - Files: `README.md`
 - Spec: §61, §62, §63, §76
 - Tests: none

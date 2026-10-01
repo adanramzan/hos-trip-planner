@@ -3,13 +3,12 @@ import math
 import requests
 from django.conf import settings
 
-from common.constants import ROUTING_PROFILE
+from common.constants import METERS_PER_MILE, ROUTING_PROFILE
 from common.errors import NoRoute, RoutingTimeout, RoutingUnavailable
 from common.types import Leg, Step
 
 URL = "https://api.openrouteservice.org/v2/directions/%s/geojson" % ROUTING_PROFILE
 TIMEOUT = 20  # seconds
-M_PER_MILE = 1609.344
 SAME_POINT_METERS = 50
 
 
@@ -34,7 +33,7 @@ def _leg(a, b):
         raise RoutingTimeout()
     except requests.RequestException:
         raise RoutingUnavailable()
-    if r.status_code == 429 or r.status_code >= 500:
+    if r.status_code in (401, 403, 429) or r.status_code >= 500:  # 401/403 = bad key
         raise RoutingUnavailable()
     if r.status_code >= 400:
         raise NoRoute()
@@ -44,10 +43,10 @@ def _leg(a, b):
             raise NoRoute()
         f = features[0]
         seg = f["properties"]["segments"][0]
-        steps = [Step(s["distance"] / M_PER_MILE, s["duration"] / 60.0, tuple(s["way_points"]))
+        steps = [Step(s["distance"] / METERS_PER_MILE, s["duration"] / 60.0, tuple(s["way_points"]))
                  for s in seg["steps"]]
         geometry = [(lat, lng) for lng, lat in f["geometry"]["coordinates"]]
-        return Leg(seg["distance"] / M_PER_MILE, seg["duration"] / 60.0, steps, geometry)
+        return Leg(seg["distance"] / METERS_PER_MILE, seg["duration"] / 60.0, steps, geometry)
     except (KeyError, IndexError, TypeError, ValueError):
         raise RoutingUnavailable()
 

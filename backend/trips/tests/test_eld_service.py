@@ -78,6 +78,35 @@ class EldServiceTest(unittest.TestCase):
         self.assertEqual(d["totals"]["SLEEPER_BERTH"], 1.75)
         self.assertEqual(d["remarks"][0]["label"], "10-hour rest")
 
+    def test_dst_fall_back_does_not_crash_or_drop_remarks(self):
+        """DST fall-back (2026-11-01 Chicago): wall clock goes backwards; never crash, keep every remark."""
+        tz = ZoneInfo("America/Chicago")
+
+        def t(m):  # real minutes after 01:00 CDT
+            base = datetime(2026, 11, 1, 1, 0, tzinfo=tz).astimezone(timezone.utc)
+            return (base + timedelta(minutes=m)).astimezone(tz)
+
+        logs = generate_daily_logs([
+            ev(EventType.PRE_TRIP_INSPECTION, t(0), t(15)),
+            ev(EventType.DRIVING, t(15), t(60), 30.0),
+            ev(EventType.PICKUP, t(60), t(120)),
+            ev(EventType.FUEL, t(120), t(135)),
+            ev(EventType.DROPOFF, t(135), t(195)),
+        ], tz)
+        for l in logs:
+            self.assertEqual(sum(s["end_minute"] - s["start_minute"] for s in l["segments"]), 1440)
+        self.assertEqual([r["label"] for r in logs[0]["remarks"]],
+                         ["Pre-trip inspection", "Driving", "Pickup", "Fuel", "Dropoff"])
+
+    def test_dst_spring_forward_covers_1440(self):
+        """DST spring-forward (2026-03-08 Chicago) still covers exactly 1440 minutes."""
+        tz = ZoneInfo("America/Chicago")
+        a = datetime(2026, 3, 8, 0, 0, tzinfo=tz)
+        b = (a.astimezone(timezone.utc) + timedelta(hours=3)).astimezone(tz)
+        c = (a.astimezone(timezone.utc) + timedelta(hours=5)).astimezone(tz)
+        (d,) = generate_daily_logs([ev(EventType.DRIVING, a, b, 100.0), ev(EventType.PICKUP, b, c)], tz)
+        self.assertEqual(sum(s["end_minute"] - s["start_minute"] for s in d["segments"]), 1440)
+
 
 if __name__ == "__main__":
     unittest.main()
