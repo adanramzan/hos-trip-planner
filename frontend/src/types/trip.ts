@@ -23,6 +23,8 @@ export interface KindMeta {
 }
 
 /** Times are hours from midnight of day 1, home terminal time. */
+export type LL = [number, number]
+
 export interface RawEvent {
   s: number
   e: number
@@ -30,20 +32,17 @@ export interface RawEvent {
   k: Kind
   loc: string
   mi?: number
+  ll?: LL // position of loc
+  utc?: number // UTC offset of loc, minutes
 }
 
-export interface TripEvent extends Required<RawEvent> {
+export interface TripEvent extends Required<Omit<RawEvent, 'll' | 'utc'>>, Pick<RawEvent, 'll' | 'utc'> {
   i: number
   from: string
   day: number
   dur: number
   meta: KindMeta
   empty: boolean // driving before pickup
-}
-
-export interface Place {
-  ll: [number, number]
-  tzOffset: number // hours relative to Eastern
 }
 
 export interface TripDef {
@@ -54,6 +53,10 @@ export interface TripDef {
   cycle: number
   days: number
   startDate: string // YYYY-MM-DD, day 1 in home terminal time
+  tzName: string
+  tzAbbr: string
+  homeUtc: number // home terminal UTC offset, minutes
+  route: { geometry: LL[]; pickupIndex: number }
   ev: RawEvent[]
 }
 
@@ -80,10 +83,7 @@ export interface Trip extends Omit<TripDef, 'ev'> {
   ev: TripEvent[]
   totals: DayTotals[]
   stops: TripEvent[]
-  places: Record<string, Place>
   dates: Date[]
-  tzName: string
-  tzAbbr: string
   miles: number
   bannerParts: string[]
   checks: { label: string; value: string }[]
@@ -106,5 +106,18 @@ export interface TripForm {
   pickup: string
   dropoff: string
   cycle: string
-  depart: string
+  depart: string // datetime-local value
+  ll: Partial<Record<'current' | 'pickup' | 'dropoff', LL>> // coordinates of picked suggestions
+}
+
+interface ApiLoc { name: string; lat: number; lng: number; utc_offset_minutes: number }
+
+/** Only the response fields the client reads. */
+export interface ApiResponse {
+  trip: { timezone: string; timezone_abbr: string; days: number; cycle_used_start: number }
+  route: { geometry: LL[]; pickup_index: number }
+  events: {
+    type: string; duty_status: string; start_time: string; end_time: string
+    location: ApiLoc; end_location?: ApiLoc | null; distance_miles?: number | null
+  }[]
 }

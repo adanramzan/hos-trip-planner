@@ -4,16 +4,21 @@ import { EmptyHero, LoadingState, ServiceError } from './components/PlannerPane'
 import { PrintView } from './components/PrintView'
 import { Results } from './components/Results'
 import type { FormErrors } from './components/TripFormPanel'
-import { TripFormPanel } from './components/TripFormPanel'
-import { PlanError, planTrip } from './services/api'
-import type { PlanErrorKind } from './services/api'
-import { SAMPLES } from './services/mockData'
+import { PRESETS, TripFormPanel } from './components/TripFormPanel'
+import { PlanError, ping, planTrip } from './services/api'
+import type { LocKey, PlanErrorKind, Suggestion } from './services/api'
 import type { LogDetails, Trip, TripForm } from './types/trip'
 
 type Mode = 'planner' | 'loading' | 'results' | 'print'
 
 const DEMO_LOG: LogDetails = { driver: 'Demo Driver', codriver: '', carrier: 'Demo Carrier LLC', office: 'Demo City, ST', truck: 'TRUCK-001', trailer: 'TRL-001', shipping: 'DEMO-0001' }
-const EMPTY_F: TripForm = { current: '', pickup: '', dropoff: '', cycle: '', depart: '2026-10-01T06:00' }
+const pad = (n: number) => String(n).padStart(2, '0')
+/** Now, rounded up to the next 15 minutes, as a datetime-local value. */
+function nextQuarter() {
+  const d = new Date(Math.ceil(Date.now() / 9e5) * 9e5)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+const emptyF = (): TripForm => ({ current: '', pickup: '', dropoff: '', cycle: '', depart: nextQuarter(), ll: {} })
 
 const ASSUMPTIONS = [
   'Property-carrying driver, 70 hours / 8 days', 'No adverse driving conditions', 'Fuel at least every 1,000 miles (30 minutes, on duty)',
@@ -22,7 +27,7 @@ const ASSUMPTIONS = [
 
 export default function App() {
   const [mode, setMode] = useState<Mode>('planner')
-  const [f, setFState] = useState<TripForm>(EMPTY_F)
+  const [f, setFState] = useState<TripForm>(emptyF)
   const [log, setLogState] = useState<LogDetails>(DEMO_LOG)
   const [errors, setErrors] = useState<FormErrors>({})
   const [step, setStep] = useState(0)
@@ -42,6 +47,8 @@ export default function App() {
   const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = [] }
   const later = (fn: () => void, ms: number) => { timers.current.push(window.setTimeout(fn, ms)) }
 
+  useEffect(ping, [])
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setEditOpen(false); setAssumOpen(false) } }
     window.addEventListener('keydown', onKey)
@@ -49,7 +56,13 @@ export default function App() {
   }, [])
 
   const setF = (k: keyof TripForm, v: string) => {
-    setFState(s => ({ ...s, [k]: v }))
+    // editing a location's text drops the coordinates of a previously picked suggestion
+    setFState(s => ({ ...s, [k]: v, ll: k === 'current' || k === 'pickup' || k === 'dropoff' ? { ...s.ll, [k]: undefined } : s.ll }))
+    setErrors(e => { const n = { ...e }; delete n[k]; return n })
+    setActiveSample(null)
+  }
+  const onPick = (k: LocKey, g: Suggestion) => {
+    setFState(s => ({ ...s, [k]: g.label, ll: { ...s.ll, [k]: [g.lat, g.lng] } }))
     setErrors(e => { const n = { ...e }; delete n[k]; return n })
     setActiveSample(null)
   }
@@ -67,7 +80,7 @@ export default function App() {
       later(() => setStep(1), 600); later(() => setStep(2), 1200); later(() => setSlow(true), 5000)
     }
     try {
-      const t = await planTrip(form)
+      const t = await planTrip(form, log)
       if (id !== run.current) return
       clearTimers()
       const done = () => { setTrip(t); setTripVersion(v => v + 1); setMode('results'); setReplanning(false); window.scrollTo({ top: 0 }) }
@@ -78,15 +91,15 @@ export default function App() {
       clearTimers()
       setReplanning(false)
       const kind: PlanErrorKind = err instanceof PlanError ? err.kind : 'unexpected'
-      if (kind === 'noRoute') { setNoRoute(true); if (isReplan) setEditOpen(true); else setMode('planner') }
+      if (kind === 'noRoute') { if (err instanceof PlanError && err.field) setErrors({ [err.field]: err.message }); else setNoRoute(true); if (isReplan) setEditOpen(true); else setMode('planner') }
       else if (isReplan) { setNoRoute(false); setEditOpen(true); setSvcError(kind) }
       else { setSvcError(kind); setMode('planner') }
     }
   }
 
   const loadSample = (key: string) => {
-    const d = SAMPLES.find(s => s.def.key === key)!.def
-    const form = { current: d.current, pickup: d.pickup, dropoff: d.dropoff, cycle: String(d.cycle), depart: EMPTY_F.depart }
+    const { current, pickup, dropoff, cycle } = PRESETS.find(s => s.key === key)!
+    const form: TripForm = { current, pickup, dropoff, cycle, depart: f.depart, ll: {} }
     setFState(form); setErrors({}); setActiveSample(key)
     plan(form)
   }
@@ -94,7 +107,7 @@ export default function App() {
   const newTrip = () => {
     run.current++
     clearTimers()
-    setMode('planner'); setFState(EMPTY_F); setTrip(null); setActiveSample(null); setErrors({})
+    setMode('planner'); setFState(emptyF()); setTrip(null); setActiveSample(null); setErrors({})
     setSvcError(null); setNoRoute(false); setEditOpen(false); setReplanning(false)
     window.scrollTo({ top: 0 })
   }
@@ -108,7 +121,7 @@ export default function App() {
   const form = (
     <TripFormPanel f={f} setF={setF} errors={errors} setErrors={setErrors} log={log} setLog={setLog}
       disabled={isLoading || replanning} busy={isLoading || replanning} isResults={isResults}
-      noRoute={noRoute} clearNoRoute={() => setNoRoute(false)} activeSample={activeSample} onSample={loadSample}
+      onPick={onPick} noRoute={noRoute} clearNoRoute={() => setNoRoute(false)} activeSample={activeSample} onSample={loadSample}
       onPlan={() => plan()} onAssum={() => setAssumOpen(o => !o)} />
   )
 

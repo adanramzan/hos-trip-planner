@@ -1,4 +1,4 @@
-import type { Card, DayTotals, Kind, KindMeta, Place, Status, Trip, TripDef, TripEvent } from '../types/trip'
+import type { Card, DayTotals, Kind, KindMeta, Status, Trip, TripDef, TripEvent } from '../types/trip'
 import { c12, dayLabel, dur, fh, num, plural, qh } from './format'
 
 export const C = {
@@ -30,11 +30,8 @@ export const KIND: Record<Kind, KindMeta> = {
   offEnd: { title: 'Off duty', reason: 'Trip complete' },
 }
 
-export const TZ: Record<number, [string, string]> = {
-  0: ['America/New_York', 'EDT'],
-  [-1]: ['America/Chicago', 'CDT'],
-  [-2]: ['America/Denver', 'MDT'],
-}
+/** Minutes → "UTC-5" / "UTC+5:30". */
+export const utcLabel = (m: number) => 'UTC' + (m < 0 ? '-' : '+') + Math.floor(Math.abs(m) / 60) + (Math.abs(m) % 60 ? ':' + String(Math.abs(m) % 60).padStart(2, '0') : '')
 
 /** "Thu Oct 1, 6:00 AM" for an hour offset into the trip. */
 export function dt(trip: Pick<Trip, 'dates'>, t: number) {
@@ -43,7 +40,7 @@ export function dt(trip: Pick<Trip, 'dates'>, t: number) {
 }
 
 /** Builds every view-model number from the canonical event list. */
-export function derive(def: TripDef, places: Record<string, Place>): Trip {
+export function derive(def: TripDef): Trip {
   const pk = def.ev.findIndex(x => x.k === 'pickup')
   let prev = def.current
   const ev: TripEvent[] = def.ev.map((a, i) => {
@@ -97,8 +94,7 @@ export function derive(def: TripDef, places: Record<string, Place>): Trip {
   const first = ev.find(x => x.k === 'start')!
   const drop = ev.find(x => x.k === 'dropoff')!
   const lastPost = ev.filter(x => x.k === 'post').pop()!
-  const home = places[def.current].tzOffset
-  const [tzName, tzAbbr] = TZ[home]
+  const { tzAbbr } = def
   const last = totals[totals.length - 1]
   const ctx = { dates }
 
@@ -109,26 +105,21 @@ export function derive(def: TripDef, places: Record<string, Place>): Trip {
   if (breaks) bannerParts.push(plural(breaks, 'break'))
   if (!rests && !fuels && !breaks && !restarts) bannerParts.push('no rests needed')
 
-  const sp: string[] = []
-  if (fuels) sp.push(fuels + ' fuel')
-  if (breaks) sp.push(breaks + ' break')
-  if (rests) sp.push(plural(rests, 'rest'))
-  if (restarts) sp.push(restarts + ' restart')
-  sp.push('pickup', 'dropoff')
-
-  const dropTz = places[drop.loc].tzOffset
-  const dropOff = dropTz - home
+  const dropOff = (drop.utc ?? def.homeUtc) - def.homeUtc // minutes
   const cards: Card[] = [
     { label: 'Total distance', value: num(miles) + ' mi', sub: `2 legs: ${num(emptyMi)} mi + ${num(miles - emptyMi)} mi` },
     { label: 'Driving time', value: dur(drive.reduce((a, x) => a + x.dur, 0)), sub: 'Truck route estimate' },
-    { label: 'Trip duration', value: dur(lastPost.e - first.s), sub: 'Departure to off duty' },
-    { label: 'Arrival at dropoff', value: dt(ctx, drop.s) + ' ' + tzAbbr, sub: dropOff ? `${c12(drop.s + dropOff)} local (${TZ[dropTz][1]})` : 'Same as home terminal time' },
-    { label: 'Stops', value: String(stops.length - 1), sub: sp.join(', ') },
-    { label: 'Cycle at end', value: qh(last.cyc) + ' of 70 h', sub: qh(70 - last.cyc) + ' h left', bar: last.cyc / 70 },
+    { label: 'Total trip time', value: dur(lastPost.e - first.s), sub: 'Departure to off duty' },
+    { label: 'Estimated arrival', value: dt(ctx, drop.s) + ' ' + tzAbbr, sub: dropOff ? `${c12(drop.s + dropOff / 60)} local (${utcLabel(drop.utc!)})` : 'Same as home terminal time' },
+    { label: 'Fuel stops', value: String(fuels), sub: 'Fuel at least every 1,000 mi' },
+    { label: 'Breaks', value: String(breaks), sub: '30 min after 8 h driving' },
+    { label: 'Daily rests', value: String(rests), sub: restarts ? plural(restarts, '34-hour restart') + ' also needed' : '10 h sleeper berth' },
+    { label: 'Cycle used', value: qh(def.cycle) + ' of 70 h', sub: 'Before this trip', bar: def.cycle / 70 },
+    { label: 'Cycle remaining', value: qh(Math.max(0, 70 - def.cycle)) + ' h', sub: `${qh(last.cyc)} h used at end of trip` },
   ]
 
   return {
-    ...def, ev, totals, stops, places, dates, tzName, tzAbbr, miles, bannerParts, cards,
+    ...def, ev, totals, stops, dates, miles, bannerParts, cards,
     checks: [
       { label: '11-hour driving', value: `Max ${fh(mD)} of 11 h` },
       { label: '14-hour window', value: `Max ${fh(mW)} of 14 h` },

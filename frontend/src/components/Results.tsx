@@ -149,7 +149,7 @@ export function Results({ trip, log, demo, replanning, onEdit, onNew, onAssum, o
                 })}
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16, height: 620 }}>
+            <div className="route-grid">
               <div className="map-wrap">
                 <RouteMap trip={trip} dayFilter={dayFilter} sel={sel} hoverStop={hoverStop} onSelect={selectFromMap} onClearSel={() => setSel(null)} onViewLog={viewLog} />
                 <div className="legend">

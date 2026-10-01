@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { LogDetails, Trip } from '../types/trip'
 import { dayLabel, num, pad, qh } from '../utils/format'
+import { hourToX } from '../utils/logGeometry'
 import { C, STATUS } from '../utils/trip'
 
 export const LOG_W = 1100, LOG_H = 1010
@@ -18,12 +19,13 @@ interface Props {
   onRemark?: (ev: number) => void
 }
 
+const warned = new WeakSet<Trip>()
 type TextOpts = { fs?: number; fill?: string; a?: 'start' | 'middle' | 'end'; fw?: number; it?: boolean }
 
 /** FMCSA paper-style driver's daily log, drawn in SVG user units (LOG_W × LOG_H). */
 export function LogSheet({ trip, day, log: lg, print, demo, dots, sel, hoverEv, onHover, onRemark }: Props) {
   const X0 = 150, HW = 35, X1 = X0 + 24 * HW, GY = 290, RH = 30, ink = C.ink, txt = '#111827', lab = '#3f3f46'
-  const xs = (t: number) => X0 + t * HW
+  const xs = (t: number) => hourToX(t, X0, 24 * HW)
   const els: ReactNode[] = []
   let k = 0
   const T = (x: number, y: number, s: string, p: TextOpts = {}) => els.push(
@@ -54,13 +56,16 @@ export function LogSheet({ trip, day, log: lg, print, demo, dots, sel, hoverEv, 
   V(818, 170, lg.office || '', { a: 'middle' }); Ln(560, 176, 1076, 176); T(818, 190, 'Main Office Address', { fs: 9, a: 'middle' })
   V(818, 214, lg.office || '', { a: 'middle' }); Ln(560, 220, 1076, 220); T(818, 234, 'Home Terminal Address', { fs: 9, a: 'middle' })
 
+  T(60, 252, 'Driver:', { fs: 10, fw: 600 }); V(104, 250, lg.driver || '-', { fs: 12 }); Ln(100, 255, 300, 255)
+  T(320, 252, 'Co-driver:', { fs: 10, fw: 600 }); V(372, 250, lg.codriver || '-', { fs: 12 }); Ln(368, 255, 520, 255)
+
   // Grid header bar
   els.push(<rect key={k++} x={X0 - 14} y={GY - 30} width={X1 - X0 + 28} height={30} fill={txt} />)
   for (let i = 0; i <= 24; i++) {
     const x = xs(i)
     if (i === 0 || i === 24) {
       T(x, GY - 18, 'Mid-', { fs: 8.5, fill: '#fff', a: 'middle', fw: 600 }); T(x, GY - 6, 'night', { fs: 8.5, fill: '#fff', a: 'middle', fw: 600 })
-    } else T(x, GY - 7, i === 12 ? 'Noon' : String(i > 12 ? i - 12 : i), { fs: 9.5, fill: '#fff', a: 'middle', fw: 600 })
+    } else T(x, GY - 7, i === 12 ? 'Noon' : String(i), { fs: 9.5, fill: '#fff', a: 'middle', fw: 600 })
   }
   T(1043, GY - 18, 'Total', { fs: 9, a: 'middle', fill: '#6b7280' }); T(1043, GY - 6, 'Hours', { fs: 9, a: 'middle', fill: '#6b7280' })
 
@@ -90,7 +95,9 @@ export function LogSheet({ trip, day, log: lg, print, demo, dots, sel, hoverEv, 
     V(1043, y + 20, qh(t[keys[ri]]), { a: 'middle', fs: 13 }); Ln(1012, y + RH - 3, 1076, y + RH - 3)
   })
   for (let i = 1; i < 24; i++) Ln(xs(i), GY, xs(i), GY + 4 * RH, txt, 0.9)
-  V(1043, GY + 4 * RH + 20, '= 24', { a: 'middle', fs: 13 })
+  const sum = Math.round(keys.reduce((a, k) => a + t[k], 0) * 100) / 100
+  if (sum !== 24 && !warned.has(trip)) { warned.add(trip); console.error(`Log day ${day + 1} rows sum to ${sum} h, expected 24`) }
+  V(1043, GY + 4 * RH + 20, '= ' + qh(sum), { a: 'middle', fs: 13 })
 
   // Duty line
   const seg = trip.ev.filter(x => x.e > ds && x.s < de)
@@ -137,6 +144,7 @@ export function LogSheet({ trip, day, log: lg, print, demo, dots, sel, hoverEv, 
   })
 
   // Footer
+  T(24, 1000, 'I certify that these entries are true and correct:', { fs: 10, fw: 600 }); V(290, 998, lg.driver || '-', { fs: 13 }); Ln(286, 1004, 560, 1004)
   TL(52, 672, ['Shipping', 'Documents:'], { fs: 11, fw: 600 }, 14)
   V(56, 716, lg.shipping || '-', { fs: 13 }); Ln(52, 722, 300, 722); TL(52, 736, ['DVL or Manifest No.', 'or'], { fs: 9.5 })
   Ln(52, 770, 300, 770); T(52, 784, 'Shipper & Commodity', { fs: 9.5 })

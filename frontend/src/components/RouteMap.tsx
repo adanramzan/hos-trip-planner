@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { MapContainer, Marker, Polyline, Popup, TileLayer, ZoomControl } from 'react-leaflet'
 import type { Trip, TripEvent } from '../types/trip'
 import { c12, dur } from '../utils/format'
-import { C, dt, STATUS, TZ } from '../utils/trip'
+import { C, dt, STATUS, utcLabel } from '../utils/trip'
 import { Icon, iconHtml } from './Icon'
 
 interface Props {
@@ -32,10 +32,11 @@ export function RouteMap({ trip, dayFilter, sel, hoverStop, onSelect, onClearSel
   const markers = useRef(new Map<number, L.Marker>())
   const selRef = useRef(sel)
   const vis = (d: number) => dayFilter === 'all' || dayFilter === d
-  const ll = (loc: string) => trip.places[loc].ll
+  const { geometry: g, pickupIndex: pi } = trip.route
 
   useEffect(() => {
-    const pts = trip.stops.filter(x => dayFilter === 'all' || dayFilter === x.day).map(x => trip.places[x.loc].ll)
+    const day = trip.stops.filter(x => x.ll && (dayFilter === 'all' || dayFilter === x.day)).map(x => x.ll!)
+    const pts = dayFilter === 'all' || !day.length ? trip.route.geometry : day
     if (map && pts.length) map.fitBounds(pts, { padding: [60, 60], maxZoom: 8 })
   }, [map, trip, dayFilter])
 
@@ -50,18 +51,16 @@ export function RouteMap({ trip, dayFilter, sel, hoverStop, onSelect, onClearSel
     <MapContainer ref={setMap} center={[39.5, -95]} zoom={4} zoomControl={false} style={{ position: 'absolute', inset: 0 }}>
       <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" attribution="© OpenStreetMap © CARTO" subdomains="abcd" maxZoom={19} />
       <ZoomControl position="bottomright" />
-      {trip.ev.filter(x => x.k === 'drive').map(x => {
-        const pos = [ll(x.from), ll(x.loc)], opacity = vis(x.day) ? 1 : 0.18
-        return [
-          <Polyline key={x.i + 'w'} positions={pos} pathOptions={{ color: '#fff', weight: 8, opacity }} />,
-          <Polyline key={x.i + 'b'} positions={pos} pathOptions={{ color: C.accent, weight: 4, opacity, dashArray: x.empty ? '2 9' : undefined, lineCap: 'round' }} />,
-        ]
-      })}
+      {/* ponytail: the response has one polyline, not one per drive, so days are not dimmed; only markers filter. */}
+      {[g.slice(0, pi + 1), g.slice(pi)].map((pos, i) => [
+        <Polyline key={i + 'w'} positions={pos} pathOptions={{ color: '#fff', weight: 8 }} />,
+        <Polyline key={i + 'b'} positions={pos} pathOptions={{ color: C.accent, weight: 4, dashArray: i === 0 ? '2 9' : undefined, lineCap: 'round' }} />,
+      ])}
       {trip.stops.filter(x => vis(x.day)).map(x => {
         const st = STATUS[x.st], m = x.meta, isSel = sel === x.i
-        const lo = trip.places[x.loc].tzOffset - trip.places[trip.current].tzOffset
+        const lo = (x.utc ?? trip.homeUtc) - trip.homeUtc // minutes
         return (
-          <Marker key={x.i} position={ll(x.loc)} icon={markerIcon(x, isSel, hoverStop === x.i)} title={`${m.title}, ${x.loc}`}
+          <Marker key={x.i} position={x.ll!} icon={markerIcon(x, isSel, hoverStop === x.i)} title={`${m.title}, ${x.loc}`}
             zIndexOffset={isSel ? 1000 : m.large ? 500 : 0}
             ref={mk => { if (mk) markers.current.set(x.i, mk); else markers.current.delete(x.i) }}
             eventHandlers={{ click: () => onSelect(x.i), popupclose: () => { if (selRef.current === x.i) onClearSel() } }}>
@@ -75,7 +74,7 @@ export function RouteMap({ trip, dayFilter, sel, hoverStop, onSelect, onClearSel
                   <span className="muted">Arrival</span>
                   <span>
                     {dt(trip, x.s)} {trip.tzAbbr}
-                    {lo !== 0 && <><br /><span className="muted">{c12(x.s + lo)} local ({TZ[trip.places[x.loc].tzOffset][1]})</span></>}
+                    {lo !== 0 && <><br /><span className="muted">{c12(x.s + lo / 60)} local ({utcLabel(x.utc!)})</span></>}
                   </span>
                   <span className="muted">Duration</span><span>{dur(x.dur)}</span>
                   <span className="muted">Status</span>

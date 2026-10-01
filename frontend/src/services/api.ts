@@ -1,42 +1,79 @@
-import type { Place, Trip, TripForm } from '../types/trip'
-import { derive } from '../utils/trip'
-import { PLACES, SAMPLES, STATE_NAME } from './mockData'
+import type { ApiResponse, LL, LogDetails, Trip, TripForm } from '../types/trip'
+import { fromApi } from '../utils/adapter'
 
 export type PlanErrorKind = 'noRoute' | 'unavailable' | 'timeout' | 'unexpected'
+export type LocKey = 'current' | 'pickup' | 'dropoff'
 
 export class PlanError extends Error {
   kind: PlanErrorKind
-  constructor(kind: PlanErrorKind, message: string) {
+  field?: LocKey // set for location_not_found
+  constructor(kind: PlanErrorKind, message: string, field?: LocKey) {
     super(message)
     this.kind = kind
+    this.field = field
   }
 }
 
-export const findPlace = (label: string): Place | undefined => PLACES[label.trim()]
+const BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+const TIMEOUT_MS = 90_000 // cold starts can take a minute
 
-export interface Suggestion { label: string; primary: string; secondary: string }
+export interface Suggestion { label: string; lat: number; lng: number; primary: string; secondary: string }
 
-/** Place autocomplete. Mock: prefix match on any word of the known places. */
-export function suggest(v: string): Suggestion[] {
-  const q = v.trim().toLowerCase()
-  if (q.length < 3) return []
-  const qq = q.replace(/,/g, '')
-  return Object.keys(PLACES)
-    .filter(n => {
-      const w = n.toLowerCase().split(/[ ,]+/)
-      return w.some((_, i) => w.slice(i).join(' ').startsWith(qq)) || n.toLowerCase().startsWith(q)
-    })
-    .slice(0, 5)
-    .map(label => {
-      const [city, st] = label.split(', ')
-      return { label, primary: city, secondary: (STATE_NAME[st] || st) + ', USA' }
-    })
+/** Place autocomplete via the backend. */
+export async function suggest(q: string): Promise<Suggestion[]> {
+  const r = await fetch(`${BASE}/api/geocode/autocomplete?q=${encodeURIComponent(q.trim())}`)
+  if (!r.ok) return []
+  const { suggestions } = await r.json() as { suggestions: { label: string; lat: number; lng: number }[] }
+  return suggestions.map(s => {
+    const i = s.label.indexOf(',')
+    return { ...s, primary: i < 0 ? s.label : s.label.slice(0, i), secondary: i < 0 ? '' : s.label.slice(i + 1).trim() }
+  })
 }
 
-/** Plans a trip. Mock: picks the closest fixture after a realistic delay. */
-export async function planTrip(f: TripForm): Promise<Trip> {
-  await new Promise(r => setTimeout(r, 2100))
-  const exact = SAMPLES.find(s => s.def.current === f.current && s.def.pickup === f.pickup && s.def.dropoff === f.dropoff)
-  const def = exact?.def ?? SAMPLES.find(s => s.def.key === (parseFloat(f.cycle) > 60 ? 'restart' : 'multi'))!.def
-  return derive(def, PLACES)
+/** Wakes a sleeping backend. Failures are ignored. */
+export const ping = () => { fetch(`${BASE}/api/health`).catch(() => {}) }
+
+/** "2026-10-01T08:00" (local) to "2026-10-01T08:00:00-04:00". */
+export function withOffset(local: string) {
+  const o = -new Date(local).getTimezoneOffset(), a = Math.abs(o)
+  return `${local}:00${o < 0 ? '-' : '+'}${String(Math.floor(a / 60)).padStart(2, '0')}:${String(a % 60).padStart(2, '0')}`
+}
+
+const loc = (f: TripForm, k: LocKey) => { const ll: LL | undefined = f.ll[k]; return ll ? { label: f[k], lat: ll[0], lng: ll[1] } : { label: f[k] } }
+
+export async function planTrip(f: TripForm, log: LogDetails): Promise<Trip> {
+  const ctl = new AbortController()
+  const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS)
+  try {
+    let r: Response
+    try {
+      r = await fetch(`${BASE}/api/trips/plan`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctl.signal,
+        body: JSON.stringify({
+          current_location: loc(f, 'current'), pickup_location: loc(f, 'pickup'), dropoff_location: loc(f, 'dropoff'),
+          current_cycle_used: parseFloat(f.cycle), start_datetime: withOffset(f.depart),
+          log_details: {
+            driver_name: log.driver, co_driver_name: log.codriver, carrier_name: log.carrier, main_office_address: log.office,
+            truck_number: log.truck, trailer_number: log.trailer, shipping_document: log.shipping,
+          },
+        }),
+      })
+    } catch (err) {
+      throw new PlanError((err as Error).name === 'AbortError' ? 'timeout' : 'unavailable', 'Network error')
+    }
+    if (!r.ok) {
+      const e = (await r.json().catch(() => null))?.error as { code?: string; field?: string } | undefined
+      if (e?.code === 'location_not_found') {
+        const k = (['current', 'pickup', 'dropoff'] as const).find(x => e.field?.startsWith(x))
+        throw new PlanError('noRoute', k ? `We couldn't find '${f[k]}'. Pick a suggestion or check the spelling.` : 'Location not found', k)
+      }
+      if (e?.code === 'no_route') throw new PlanError('noRoute', 'No route')
+      if (e?.code === 'routing_timeout') throw new PlanError('timeout', 'Timeout')
+      if (e?.code === 'routing_unavailable' || r.status >= 500) throw new PlanError('unavailable', 'Unavailable')
+      throw new PlanError('unexpected', 'Unexpected response')
+    }
+    return fromApi(await r.json() as ApiResponse)
+  } finally {
+    clearTimeout(timer)
+  }
 }

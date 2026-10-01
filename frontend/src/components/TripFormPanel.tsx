@@ -1,19 +1,24 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
-import { findPlace, suggest } from '../services/api'
-import { SAMPLES } from '../services/mockData'
+import { suggest } from '../services/api'
+import type { LocKey, Suggestion } from '../services/api'
 import type { IconName, LogDetails, TripForm } from '../types/trip'
 import { qh } from '../utils/format'
-import { C, TZ } from '../utils/trip'
+import { C } from '../utils/trip'
 import { Icon } from './Icon'
 
 export type FormErrors = Partial<Record<keyof TripForm, string>>
-type LocKey = 'current' | 'pickup' | 'dropoff'
 
 const LOC: { k: LocKey; label: string; ph: string; noun: string; icon: IconName }[] = [
   { k: 'current', label: 'Current location', ph: 'e.g. Newark, NJ', noun: 'current location', icon: 'circle' },
   { k: 'pickup', label: 'Pickup location', ph: 'e.g. Philadelphia, PA', noun: 'pickup location', icon: 'package' },
   { k: 'dropoff', label: 'Dropoff location', ph: 'e.g. Denver, CO', noun: 'dropoff location', icon: 'flag' },
+]
+
+export const PRESETS: { key: string; chip: string; icon: IconName; current: string; pickup: string; dropoff: string; cycle: string }[] = [
+  { key: 'short', chip: 'Short trip', icon: 'route', current: 'Dallas, TX', pickup: 'Fort Worth, TX', dropoff: 'Austin, TX', cycle: '10' },
+  { key: 'long', chip: 'Long haul', icon: 'truck', current: 'Boston, MA', pickup: 'Chicago, IL', dropoff: 'Los Angeles, CA', cycle: '15' },
+  { key: 'restart', chip: 'Near cycle limit', icon: 'history', current: 'Chicago, IL', pickup: 'Indianapolis, IN', dropoff: 'Nashville, TN', cycle: '65' },
 ]
 
 const LOG_FIELDS: [keyof LogDetails, string, boolean][] = [
@@ -26,7 +31,6 @@ export function validate(f: TripForm): FormErrors {
   LOC.forEach(({ k, noun }) => {
     const v = f[k].trim()
     if (!v) e[k] = `Enter a ${noun}.`
-    else if (!findPlace(v)) e[k] = `We couldn't find '${v}'. Pick a suggestion or check the spelling.`
   })
   const c = parseFloat(f.cycle)
   if (f.cycle === '' || isNaN(c) || c < 0 || c > 70) e.cycle = 'Enter hours between 0 and 70.'
@@ -45,6 +49,7 @@ interface Props {
   isResults: boolean
   noRoute: boolean
   clearNoRoute: () => void
+  onPick: (k: LocKey, s: Suggestion) => void
   activeSample: string | null
   onSample: (key: string) => void
   onPlan: () => void
@@ -56,6 +61,7 @@ export function TripFormPanel(p: Props) {
   const [focus, setFocus] = useState<LocKey | null>(null)
   const [ai, setAi] = useState(0)
   const [logOpen, setLogOpen] = useState(false)
+  const [sug, setSug] = useState<{ q: string; list: Suggestion[] } | null>(null)
   const refs = useRef<Partial<Record<keyof TripForm, HTMLInputElement | null>>>({})
 
   const submit = () => {
@@ -69,11 +75,18 @@ export function TripFormPanel(p: Props) {
     p.onPlan()
   }
 
-  const pick = (k: LocKey, v: string) => { p.setF(k, v); setAi(0) }
+  const pick = (k: LocKey, s: Suggestion) => { p.onPick(k, s); setAi(0) }
+
+  // Debounced autocomplete for the focused field; a result only shows while its query still matches the input.
+  const fq = focus && !f.ll[focus] ? f[focus].trim() : ''
+  useEffect(() => {
+    if (fq.length < 3) return
+    let stale = false
+    const t = setTimeout(() => { suggest(fq).then(list => { if (!stale) setSug({ q: fq, list }) }).catch(() => {}) }, 300)
+    return () => { stale = true; clearTimeout(t) }
+  }, [fq])
 
   const cn = parseFloat(f.cycle), cOk = f.cycle !== '' && !isNaN(cn) && cn >= 0 && cn <= 70
-  const home = findPlace(f.current)
-  const tzn = home ? TZ[home.tzOffset][0] : null
 
   return (
     <div className="form-card">
@@ -93,9 +106,9 @@ export function TripFormPanel(p: Props) {
       <div className="stack-8">
         <div className="caption">Try a sample trip</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {SAMPLES.map(s => (
-            <button key={s.def.key} className={'pill' + (p.activeSample === s.def.key ? ' active' : '')} disabled={disabled}
-              onClick={() => p.onSample(s.def.key)}>
+          {PRESETS.map(s => (
+            <button key={s.key} className={'pill' + (p.activeSample === s.key ? ' active' : '')} disabled={disabled}
+              onClick={() => p.onSample(s.key)}>
               <Icon name={s.icon} size={14} />{s.chip}
             </button>
           ))}
@@ -104,16 +117,16 @@ export function TripFormPanel(p: Props) {
 
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {LOC.map(({ k, label, ph, icon }, idx) => {
-          const v = f[k], exact = !!findPlace(v)
-          const open = focus === k && v.trim().length >= 3 && !exact
-          const list = open ? suggest(v) : []
+          const v = f[k], exact = !!f.ll[k]
+          const open = focus === k && !exact && sug?.q === v.trim()
+          const list = open ? sug!.list : []
           const err = errors[k]
           const onKeyDown = (e: KeyboardEvent) => {
             if (!open) return
             const n = Math.max(list.length, 1)
             if (e.key === 'ArrowDown') { e.preventDefault(); setAi((ai + 1) % n) }
             else if (e.key === 'ArrowUp') { e.preventDefault(); setAi((ai - 1 + n) % n) }
-            else if (e.key === 'Enter' && list.length) { e.preventDefault(); pick(k, list[ai].label) }
+            else if (e.key === 'Enter' && list.length) { e.preventDefault(); pick(k, list[ai]) }
             else if (e.key === 'Escape') setFocus(null)
           }
           return (
@@ -148,7 +161,7 @@ export function TripFormPanel(p: Props) {
                     <div role="listbox" className="suggest">
                       {list.map((s, i) => (
                         <div key={s.label} role="option" aria-selected={i === ai} className={'option' + (i === ai ? ' active' : '')}
-                          onMouseDown={e => { e.preventDefault(); pick(k, s.label) }}>
+                          onMouseDown={e => { e.preventDefault(); pick(k, s) }}>
                           <span style={{ color: '#71717a' }}><Icon name="mapPin" size={15} /></span>
                           <div><div style={{ fontSize: 14, fontWeight: 500 }}>{s.primary}</div><div style={{ fontSize: 12, color: '#71717a' }}>{s.secondary}</div></div>
                         </div>
@@ -186,7 +199,7 @@ export function TripFormPanel(p: Props) {
         <input id="depart" className="input" type="datetime-local" value={f.depart} disabled={disabled}
           onChange={e => p.setF('depart', e.target.value)} />
         <div style={{ fontSize: 12, color: '#71717a', lineHeight: 1.5 }}>
-          {tzn ? `Logs use home terminal time (${tzn}), detected from your current location.` : 'Logs use home terminal time, detected from your current location.'}
+          Logs use the time zone of your current location (home terminal time). The exact zone is shown after planning.
         </div>
       </div>
 

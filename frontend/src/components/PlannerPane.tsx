@@ -1,7 +1,6 @@
-import { useMemo } from 'react'
-import { PLACES, SAMPLES } from '../services/mockData'
+import { GHOST_TRIP } from '../services/ghostTrip'
 import type { PlanErrorKind } from '../services/api'
-import { C, derive } from '../utils/trip'
+import { C } from '../utils/trip'
 import { Icon } from './Icon'
 import { LogSheet } from './LogSheet'
 
@@ -9,7 +8,6 @@ const HERO_RULES = ['11 h driving', '14 h window', '30 min break', '10 h rest', 
 const DEMO_LOG = { truck: 'TRUCK-001', trailer: 'TRL-001', carrier: 'Demo Carrier LLC', office: 'Demo City, ST', shipping: 'DEMO-0001' }
 
 export function EmptyHero() {
-  const ghost = useMemo(() => derive(SAMPLES[1].def, PLACES), [])
   return (
     <div className="hero">
       <div className="hero-grid" />
@@ -21,7 +19,7 @@ export function EmptyHero() {
           {HERO_RULES.map((r, i) => <span key={r} className="hero-rule" style={{ animationDelay: 200 + i * 50 + 'ms' }}>{r}</span>)}
         </div>
       </div>
-      <div className="hero-sheet"><LogSheet trip={ghost} day={0} log={DEMO_LOG} dots /></div>
+      <div className="hero-sheet"><LogSheet trip={GHOST_TRIP} day={0} log={DEMO_LOG} dots /></div>
     </div>
   )
 }

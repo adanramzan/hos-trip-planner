@@ -139,6 +139,7 @@ button:disabled { cursor: default }
 .stat-value { font-family: 'Geist Mono', monospace; font-size: 20px; font-weight: 500; letter-spacing: -0.03em; line-height: 1.2; color: #0B1020 }
 .bar { height: 4px; background: #f4f4f5; border-radius: 2px; overflow: hidden }
 .bar > div { height: 100%; border-radius: 2px; transform-origin: left; animation: hos-bar 600ms cubic-bezier(.23, 1, .32, 1) 300ms both }
+.route-grid { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; height: 620px }
 .map-wrap { position: relative; border-radius: 16px; overflow: hidden; background: #eef0f3; box-shadow: 0 0 0 1px rgba(11, 16, 32, .08), 0 12px 32px -16px rgba(11, 16, 32, .2) }
 .legend { position: absolute; left: 12px; bottom: 12px; z-index: 800; background: rgba(255, 255, 255, .95); border: 1px solid #e4e4e7; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 12px }
 .legend-row { display: flex; align-items: center; gap: 8px; white-space: nowrap }
@@ -184,6 +185,33 @@ button:disabled { cursor: default }
 .print-pages { display: flex; flex-direction: column; align-items: center; gap: 32px; padding: 32px 0; background: #e4e4e7; min-height: 100vh }
 .page { width: 8.5in; height: 11in; padding: .5in; background: #fff; box-shadow: 0 8px 30px -10px rgba(0, 0, 0, .25); display: flex; flex-direction: column; justify-content: space-between }
 .page-foot { display: flex; justify-content: space-between; font-size: 10px; color: #3f3f46; border-top: 1px solid #d4d4d8; padding-top: 8px }
+@media (max-width: 1024px) {
+  .main { grid-template-columns: minmax(0, 1fr) !important; padding: 16px }
+  .main > aside { position: static !important }
+  .hero { min-height: 0; padding: 32px 24px 0 }
+  .route-grid { grid-template-columns: minmax(0, 1fr); height: auto }
+  .route-grid .map-wrap { height: 420px }
+  .route-grid .timeline { max-height: 520px }
+  .checks { grid-template-columns: repeat(3, minmax(0, 1fr)) }
+  .day-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) }
+  .resbar { padding: 0 16px; gap: 12px }
+}
+@media (max-width: 640px) {
+  .main { padding: 12px }
+  .drawer { width: 100% }
+  .resbar { grid-template-columns: minmax(0, 1fr) auto; height: auto; min-height: 64px; padding: 8px 12px }
+  .resbar nav { display: none !important }
+  .hero { padding: 24px 16px 0 }
+  .route-grid .map-wrap { height: 320px }
+  .checks, .day-stats { grid-template-columns: minmax(0, 1fr) }
+  .stat-hero { flex-basis: 100%; border-right: 0; border-bottom: 1px solid #e4e4e7 }
+  .stat { flex-basis: 45% }
+  .arrival { font-size: 26px }
+  .paper { padding: 12px; overflow-x: auto }
+  .paper > div { min-width: 720px }
+  .tr { grid-template-columns: 90px minmax(0, 1fr) 70px; gap: 8px }
+  .tr > div:nth-child(3) { display: none }
+}
 @media print {
   [data-noprint] { display: none !important }
   html, body { background: #fff !important }
