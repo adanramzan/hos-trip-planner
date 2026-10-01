@@ -4,13 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-Pre-implementation. The only source of truth so far is `full-stack-dev-assessment-complete-plan.md` (the spec, referenced below as §N). Read the relevant section before implementing anything; it is detailed and deliberate about HOS edge cases. Update this file with real commands once `frontend/` and `backend/` exist.
+Implemented on branch `feat/hos-engine`; progress is tracked in `TASKS.md`. The spec is `full-stack-dev-assessment-complete-plan.md` (referenced below as §N); read the relevant section before changing behaviour.
+
+## Commands
+
+- Backend (Python 3.9 venv at `backend/.venv`): `cd backend && .venv/bin/python manage.py test trips` (ORS is mocked; no DB), `.venv/bin/python manage.py runserver`. Local run needs `backend/.env` copied from `.env.example` with `DJANGO_DEBUG=true` and an `ORS_API_KEY`.
+- One test module: `.venv/bin/python manage.py test trips.tests.test_scheduler`
+- Frontend: `cd frontend && npm run dev | build | lint | test` (vitest). Needs `frontend/.env` with `VITE_API_BASE_URL`.
 
 ## What this is
 
 Truck trip planner for a full-stack assessment: React (Vite + TypeScript) frontend, Django REST backend. Input: current / pickup / dropoff locations + current 70-hour cycle used (0–70, decimals OK). Output: HGV route, FMCSA Hours-of-Service-compliant schedule, map with stops, and a filled-out FMCSA paper-style daily log sheet per calendar day.
 
-## Planned layout (§30, §56, §68)
+## Layout (§30, §56, §68)
 
 - `backend/` — Django. `trips/` (views, serializers, urls, tests), `services/` (`routing_service.py`, `geocoding_service.py`, `hos_scheduler.py`, `eld_service.py`, `route_position.py`), `common/` (`enums.py`, `constants.py`). No database needed.
 - `frontend/` — Vite React TS, react-leaflet map, hand-written SVG for log sheets (no chart lib), plain React state (no Redux).
