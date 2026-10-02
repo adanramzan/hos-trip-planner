@@ -4,7 +4,7 @@ from functools import lru_cache
 import requests
 from django.conf import settings
 
-from common.errors import LocationNotFound, RoutingTimeout, RoutingUnavailable
+from common.errors import LocationNotFound, RoutingTimeout, RoutingUnavailable, provider_reason
 from common.types import Location
 
 BASE = "https://api.openrouteservice.org/geocode"
@@ -29,7 +29,10 @@ def _location(feature):
 def _get(path, params):
     params = dict(params, api_key=settings.ORS_API_KEY)
     r = requests.get(BASE + path, params=params, timeout=TIMEOUT)
-    r.raise_for_status()
+    try:
+        r.raise_for_status()
+    except requests.HTTPError:
+        raise RoutingUnavailable(provider_reason(r))
     try:
         return r.json().get("features", [])
     except (ValueError, AttributeError):  # non-JSON or non-object body

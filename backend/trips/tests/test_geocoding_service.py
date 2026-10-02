@@ -48,6 +48,17 @@ class GeocodeTests(TestCase):
 
 
 class GeocodeErrorTests(TestCase):
+    def test_provider_reason_is_passed_on_without_the_key(self):
+        """A refused geocode carries ORS's own words, and never the request URL (it holds the key)."""
+        from common.errors import RoutingUnavailable
+        bad = MagicMock(status_code=403)
+        bad.raise_for_status.side_effect = requests.HTTPError("403 for url: https://x/?api_key=SECRET")
+        bad.json.return_value = {"error": "Quota exceeded"}
+        with patch("requests.get", return_value=bad):
+            with self.assertRaises(RoutingUnavailable) as cm:
+                g.geocode("Dallas, TX")
+        self.assertEqual(str(cm.exception), "OpenRouteService answered: Quota exceeded (HTTP 403).")
+
     def test_timeout_and_failures(self):
         """Test 17: geocode maps timeout, other request errors and non-2xx to routing errors."""
         from common.errors import RoutingTimeout, RoutingUnavailable

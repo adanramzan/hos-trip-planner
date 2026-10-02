@@ -33,6 +33,7 @@ export default function App() {
   const [step, setStep] = useState(0)
   const [slow, setSlow] = useState(false)
   const [svcError, setSvcError] = useState<Exclude<PlanErrorKind, 'noRoute'> | null>(null)
+  const [svcDetail, setSvcDetail] = useState('') // the backend's reason for a service error
   const [noRoute, setNoRoute] = useState<string | false>(false) // the reason text, '' when unknown
   const [trip, setTrip] = useState<Trip | null>(null)
   const [tripVersion, setTripVersion] = useState(0)
@@ -91,6 +92,7 @@ export default function App() {
       clearTimers()
       setReplanning(false)
       const kind: PlanErrorKind = err instanceof PlanError ? err.kind : 'unexpected'
+      setSvcDetail(err instanceof PlanError && kind !== 'noRoute' ? err.message : '')
       if (kind === 'noRoute') { if (err instanceof PlanError && err.field) setErrors({ [err.field]: err.message }); else setNoRoute(err instanceof PlanError ? err.message : ''); if (isReplan) setEditOpen(true); else setMode('planner') }
       else if (isReplan) { setNoRoute(false); setEditOpen(true); setSvcError(kind) }
       else { setSvcError(kind); setMode('planner') }
@@ -140,7 +142,7 @@ export default function App() {
               </div>
               <button className="icon-btn" onClick={() => setEditOpen(false)} aria-label="Close"><Icon name="x" size={18} /></button>
             </div>
-            {svcError && <div className="error-text" style={{ padding: '0 4px 12px' }}>Couldn't update the plan. Try again.</div>}
+            {svcError && <div className="error-text" style={{ padding: '0 4px 12px' }}>Couldn't update the plan. {svcDetail || 'Try again.'}</div>}
             {form}
           </aside>
           {editOpen && <div className="scrim" onClick={() => setEditOpen(false)} />}
@@ -158,7 +160,7 @@ export default function App() {
             <aside style={{ position: 'sticky', top: 24 }}>{form}</aside>
             <section style={{ minWidth: 0 }}>
               {isLoading ? <LoadingState step={step} slow={slow} />
-                : svcError ? <ServiceError kind={svcError} onRetry={() => plan()} onNew={newTrip} />
+                : svcError ? <ServiceError kind={svcError} detail={svcDetail} onRetry={() => plan()} onNew={newTrip} />
                   : <EmptyHero />}
             </section>
           </main>

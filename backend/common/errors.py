@@ -18,3 +18,14 @@ class RoutingUnavailable(PlannerError):
 
 class RoutingTimeout(PlannerError):
     pass
+
+
+def provider_reason(r):
+    """What OpenRouteService answered, for the user. Built from the response body only:
+    the request URL carries the API key and must never be shown."""
+    try:
+        err = r.json().get("error")
+        msg = err.get("message") if isinstance(err, dict) else err
+    except (ValueError, AttributeError):
+        msg = None
+    return "OpenRouteService answered: %s (HTTP %s)." % (msg if isinstance(msg, str) and msg else "request refused", r.status_code)

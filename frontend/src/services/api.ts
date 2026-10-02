@@ -62,7 +62,7 @@ export async function planTrip(f: TripForm, log: LogDetails): Promise<Trip> {
         }),
       })
     } catch (err) {
-      throw new PlanError((err as Error).name === 'AbortError' ? 'timeout' : 'unavailable', 'Network error')
+      throw new PlanError((err as Error).name === 'AbortError' ? 'timeout' : 'unavailable', '')
     }
     if (!r.ok) {
       const e = (await r.json().catch(() => null))?.error as { code?: string; field?: string; message?: string } | undefined
@@ -75,8 +75,8 @@ export async function planTrip(f: TripForm, log: LogDetails): Promise<Trip> {
         if (k && e.message) throw new PlanError('noRoute', e.message, k)
       }
       if (e?.code === 'no_route') throw new PlanError('noRoute', e.message ?? '')
-      if (e?.code === 'routing_timeout') throw new PlanError('timeout', 'Timeout')
-      if (e?.code === 'routing_unavailable' || r.status >= 500) throw new PlanError('unavailable', 'Unavailable')
+      if (e?.code === 'routing_timeout') throw new PlanError('timeout', e.message ?? '')
+      if (e?.code === 'routing_unavailable' || r.status >= 500) throw new PlanError('unavailable', e?.message ?? '')
       throw new PlanError('unexpected', 'Unexpected response')
     }
     return fromApi(await r.json() as ApiResponse)

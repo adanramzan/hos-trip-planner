@@ -92,6 +92,7 @@ class AuthTests(TestCase):
     def test_bad_key_is_unavailable(self):
         """Test 17: ORS 401/403 (bad or missing key) is a service problem, not 'no route'."""
         for status in (401, 403):
-            with patch("requests.post", return_value=resp(status)):
-                with self.assertRaises(RoutingUnavailable):
+            with patch("requests.post", return_value=resp(status, {"error": "Quota exceeded"})):
+                with self.assertRaises(RoutingUnavailable) as cm:
                     r.route([A, B])
+            self.assertEqual(str(cm.exception), "OpenRouteService answered: Quota exceeded (HTTP %d)." % status)

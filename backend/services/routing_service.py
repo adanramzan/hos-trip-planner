@@ -4,7 +4,7 @@ import requests
 from django.conf import settings
 
 from common.constants import METERS_PER_MILE, ROUTING_PROFILE
-from common.errors import NoRoute, RoutingTimeout, RoutingUnavailable
+from common.errors import NoRoute, RoutingTimeout, RoutingUnavailable, provider_reason
 from common.types import Leg, Step
 
 URL = "https://api.openrouteservice.org/v2/directions/%s/geojson" % ROUTING_PROFILE
@@ -51,7 +51,7 @@ def _leg(a, b):
     except requests.RequestException:
         raise RoutingUnavailable()
     if r.status_code in (401, 403, 429) or r.status_code >= 500:  # 401/403 = bad key
-        raise RoutingUnavailable()
+        raise RoutingUnavailable(provider_reason(r))
     if r.status_code >= 400:
         raise NoRoute(_reason(r, a, b))
     try:

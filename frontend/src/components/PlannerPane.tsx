@@ -84,12 +84,13 @@ const SVC_TITLE: Record<Exclude<PlanErrorKind, 'noRoute'>, string> = {
   unexpected: 'Something went wrong while planning this trip.',
 }
 
-export function ServiceError({ kind, onRetry, onNew }: { kind: Exclude<PlanErrorKind, 'noRoute'>; onRetry: () => void; onNew: () => void }) {
+export function ServiceError({ kind, detail, onRetry, onNew }: { kind: Exclude<PlanErrorKind, 'noRoute'>; detail?: string; onRetry: () => void; onNew: () => void }) {
   return (
     <div className="panel" style={{ minHeight: 520, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
       <div style={{ maxWidth: 420, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
         <div className="err-icon"><Icon name="alertCircle" size={22} /></div>
         <div style={{ fontSize: 16, fontWeight: 600 }}>{SVC_TITLE[kind]}</div>
+        {detail && <div className="error-text">{detail}</div>}
         <div style={{ fontSize: 14, color: '#71717a' }}>Your inputs are saved. Nothing was lost.</div>
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <button className="btn btn-primary" onClick={onRetry}><Icon name="rotate" size={15} />Try again</button>
