@@ -234,7 +234,7 @@ export function TripFormPanel(p: Props) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <button className="btn-plan" disabled={disabled} style={{ opacity: disabled ? 0.7 : 1 }} onClick={submit}>
           {p.busy && <span className="spin"><Icon name="loader" color="#fff" /></span>}
-          {p.busy ? 'Planning…' : p.isResults ? 'Update plan' : 'Plan trip'}
+          {p.busy ? 'Planning…' : p.isResults && f.current && f.pickup && f.dropoff ? 'Update plan' : 'Plan trip'}
         </button>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
           <button className="link-btn" onClick={p.onAssum}>What does the planner assume?</button>
