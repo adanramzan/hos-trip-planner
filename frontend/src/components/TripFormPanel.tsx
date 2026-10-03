@@ -55,6 +55,7 @@ interface Props {
   activeSample: string | null
   onSample: (key: string) => void
   onPlan: () => void
+  onClear: () => void
   onAssum: () => void
 }
 
@@ -235,7 +236,10 @@ export function TripFormPanel(p: Props) {
           {p.busy && <span className="spin"><Icon name="loader" color="#fff" /></span>}
           {p.busy ? 'Planning…' : p.isResults ? 'Update plan' : 'Plan trip'}
         </button>
-        <button className="link-btn" style={{ alignSelf: 'center' }} onClick={p.onAssum}>What does the planner assume?</button>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
+          <button className="link-btn" onClick={p.onAssum}>What does the planner assume?</button>
+          <button className="link-btn" style={{ color: '#71717a' }} disabled={disabled} onClick={p.onClear}>Clear form</button>
+        </div>
       </div>
       {mapFor && <MapPicker ll={f.ll[mapFor]} onClose={() => setMapFor(null)} onUse={s => { pick(mapFor, s); setMapFor(null) }} />}
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { LogDetails, Trip } from '../types/trip'
 import { c24, dayLabel, dur, fh, num, qh } from '../utils/format'
 import { C, dt, STATUS } from '../utils/trip'
@@ -13,7 +14,7 @@ interface Props {
   log: LogDetails
   demo: boolean
   replanning: boolean
-  onEdit: () => void
+  side: ReactNode // the trip form, kept beside the results so any field can be changed in place
   onNew: () => void
   onAssum: () => void
   onPrint: (days: number[]) => void
@@ -21,7 +22,7 @@ interface Props {
 
 const LEGEND = (['off', 'sb', 'd', 'on'] as const).map(k => ({ label: STATUS[k].short || STATUS[k].label, color: STATUS[k].color }))
 
-export function Results({ trip, log, demo, replanning, onEdit, onNew, onAssum, onPrint }: Props) {
+export function Results({ trip, log, demo, replanning, side, onNew, onAssum, onPrint }: Props) {
   const [sel, setSel] = useState<number | null>(null)
   const [hoverStop, setHoverStop] = useState<number | null>(null)
   const [dayFilter, setDayFilter] = useState<'all' | number>('all')
@@ -81,13 +82,13 @@ export function Results({ trip, log, demo, replanning, onEdit, onNew, onAssum, o
         </nav>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button className="btn-dark-ghost" style={{ padding: '0 10px' }} onClick={onAssum} title="Assumptions" aria-label="Assumptions"><Icon name="info" /></button>
-          <button className="btn-dark-outline" onClick={onEdit}><Icon name="pencil" size={15} />Edit trip</button>
           <button className="btn-dark-ghost" onClick={onNew}><Icon name="plus" />New trip</button>
         </div>
       </div>
       {replanning && <div className="replan-bar"><div className="indet" /></div>}
 
-      <main className="main" style={{ gridTemplateColumns: 'minmax(0,1fr)' }}>
+      <main className="main" style={{ gridTemplateColumns: '440px minmax(0,1fr)' }}>
+        <aside className="side">{side}</aside>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 40, minWidth: 0, opacity: replanning ? 0.55 : 1, transition: 'opacity 200ms ease' }}>
 
           <section ref={el => { refs.current.summary = el }} className="section" style={{ gap: 16 }}>

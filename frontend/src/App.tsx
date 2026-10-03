@@ -38,7 +38,6 @@ export default function App() {
   const [trip, setTrip] = useState<Trip | null>(null)
   const [tripVersion, setTripVersion] = useState(0)
   const [activeSample, setActiveSample] = useState<string | null>(null)
-  const [editOpen, setEditOpen] = useState(false)
   const [assumOpen, setAssumOpen] = useState(false)
   const [replanning, setReplanning] = useState(false)
   const [printDays, setPrintDays] = useState<number[]>([])
@@ -51,7 +50,7 @@ export default function App() {
   useEffect(ping, [])
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setEditOpen(false); setAssumOpen(false) } }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setAssumOpen(false) }
     window.addEventListener('keydown', onKey)
     return () => { window.removeEventListener('keydown', onKey); clearTimers() }
   }, [])
@@ -75,7 +74,7 @@ export default function App() {
     clearTimers()
     setErrors({}); setNoRoute(false); setSvcError(null)
     const isReplan = mode === 'results'
-    if (isReplan) { setEditOpen(false); setReplanning(true) }
+    if (isReplan) setReplanning(true)
     else {
       setMode('loading'); setStep(0); setSlow(false)
       later(() => setStep(1), 600); later(() => setStep(2), 1200); later(() => setSlow(true), 5000)
@@ -93,9 +92,8 @@ export default function App() {
       setReplanning(false)
       const kind: PlanErrorKind = err instanceof PlanError ? err.kind : 'unexpected'
       setSvcDetail(err instanceof PlanError && kind !== 'noRoute' ? err.message : '')
-      if (kind === 'noRoute') { if (err instanceof PlanError && err.field) setErrors({ [err.field]: err.message }); else setNoRoute(err instanceof PlanError ? err.message : ''); if (isReplan) setEditOpen(true); else setMode('planner') }
-      else if (isReplan) { setNoRoute(false); setEditOpen(true); setSvcError(kind) }
-      else { setSvcError(kind); setMode('planner') }
+      if (kind === 'noRoute') { if (err instanceof PlanError && err.field) setErrors({ [err.field]: err.message }); else setNoRoute(err instanceof PlanError ? err.message : ''); if (!isReplan) setMode('planner') }
+      else { setSvcError(kind); if (!isReplan) setMode('planner') }
     }
   }
 
@@ -106,11 +104,13 @@ export default function App() {
     plan(form)
   }
 
+  const clearForm = () => { setFState(emptyF()); setErrors({}); setNoRoute(false); setSvcError(null); setActiveSample(null) }
+
   const newTrip = () => {
     run.current++
     clearTimers()
     setMode('planner'); setFState(emptyF()); setTrip(null); setActiveSample(null); setErrors({})
-    setSvcError(null); setNoRoute(false); setEditOpen(false); setReplanning(false)
+    setSvcError(null); setNoRoute(false); setReplanning(false)
     window.scrollTo({ top: 0 })
   }
 
@@ -124,7 +124,7 @@ export default function App() {
     <TripFormPanel f={f} setF={setF} errors={errors} setErrors={setErrors} log={log} setLog={setLog}
       disabled={isLoading || replanning} busy={isLoading || replanning} isResults={isResults}
       onPick={onPick} noRoute={noRoute} clearNoRoute={() => setNoRoute(false)} activeSample={activeSample} onSample={loadSample}
-      onPlan={() => plan()} onAssum={() => setAssumOpen(o => !o)} />
+      onPlan={() => plan()} onClear={clearForm} onAssum={() => setAssumOpen(o => !o)} />
   )
 
   return (
@@ -132,20 +132,9 @@ export default function App() {
       {isResults ? (
         <>
           <Results key={tripVersion} trip={trip} log={log} demo={demo} replanning={replanning}
-            onEdit={() => { setEditOpen(true); setNoRoute(false) }} onNew={newTrip} onAssum={() => setAssumOpen(o => !o)}
-            onPrint={days => { setPrintDays(days); setEditOpen(false); setMode('print'); window.scrollTo({ top: 0 }) }} />
-          <aside className={'drawer' + (editOpen ? ' open' : '')} aria-hidden={!editOpen}>
-            <div className="drawer-head">
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 600 }}>Edit trip</div>
-                <div style={{ fontSize: 13, color: '#71717a' }}>Changes re-plan the trip in place.</div>
-              </div>
-              <button className="icon-btn" onClick={() => setEditOpen(false)} aria-label="Close"><Icon name="x" size={18} /></button>
-            </div>
-            {svcError && <div className="error-text" style={{ padding: '0 4px 12px' }}>Couldn't update the plan. {svcDetail || 'Try again.'}</div>}
-            {form}
-          </aside>
-          {editOpen && <div className="scrim" onClick={() => setEditOpen(false)} />}
+            side={<>{svcError && <div className="error-text" style={{ padding: '0 4px 12px' }}>Couldn't update the plan. {svcDetail || 'Try again.'}</div>}{form}</>}
+            onNew={newTrip} onAssum={() => setAssumOpen(o => !o)}
+            onPrint={days => { setPrintDays(days); setMode('print'); window.scrollTo({ top: 0 }) }} />
         </>
       ) : (
         <>

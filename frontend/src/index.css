@@ -102,10 +102,9 @@ button:disabled { cursor: default }
 .log-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 4px 14px 14px; animation: hos-reveal 200ms cubic-bezier(.23, 1, .32, 1) both }
 
 /* Drawer & overlays */
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 480px; z-index: 1200; overflow-y: auto; background: #F6F7F9; border-left: 1px solid #e4e4e7; box-shadow: -20px 0 40px -20px rgba(15, 23, 42, .25); padding: 16px; transform: translateX(105%); visibility: hidden; transition: transform 360ms cubic-bezier(.32, .72, 0, 1), visibility 360ms }
-.drawer.open { transform: none; visibility: visible }
 .drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 12px }
 .scrim { position: fixed; inset: 0; z-index: 1100; background: rgba(9, 9, 11, .35); animation: hos-fade 240ms ease both }
+.side { position: sticky; top: 88px; max-height: calc(100vh - 88px); overflow-y: auto; padding-bottom: 8px } /* below the 64px results bar */
 .scrim-clear { position: fixed; inset: 0; z-index: 1290 }
 .popover { position: fixed; top: 64px; right: 24px; z-index: 1300; transform-origin: top right; animation: hos-pop 180ms cubic-bezier(.23, 1, .32, 1) both; width: 360px; background: #fff; border: 1px solid #e4e4e7; border-radius: 10px; box-shadow: 0 16px 40px -12px rgba(15, 23, 42, .28); padding: 16px 18px }
 
@@ -198,7 +197,6 @@ button:disabled { cursor: default }
 }
 @media (max-width: 640px) {
   .main { padding: 12px }
-  .drawer { width: 100% }
   .resbar { grid-template-columns: minmax(0, 1fr) auto; height: auto; min-height: 64px; padding: 8px 12px }
   .resbar nav { display: none !important }
   .hero { padding: 24px 16px 0 }
