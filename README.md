@@ -4,9 +4,7 @@ A full-stack truck trip planner that accepts a current location, pickup and drop
 
 ## URLs
 
-Live URL: _to be added_
-
-Loom URL: _to be added_
+Live URL: https://hos-trip-planner-amber.vercel.app/
 
 ## Screenshots
 
