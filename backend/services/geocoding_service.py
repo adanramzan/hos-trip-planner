@@ -12,10 +12,17 @@ TIMEOUT = 10  # seconds
 
 
 def _label(props):
-    city = props.get("locality") or props.get("name")
-    if city and props.get("region_a"):
-        return "%s, %s" % (city, props["region_a"])
-    return props.get("label") or city or ""
+    """'Town, ST'; off-town points read 'Road near Nearest, ST' as the FMCSA log guide asks."""
+    st = props.get("region_a")
+    town = props.get("locality")
+    if not st:
+        return props.get("label") or props.get("name") or ""
+    if town:
+        return "%s, %s" % (town, st)
+    road, near = props.get("street") or props.get("name"), props.get("localadmin") or props.get("county")
+    if road and near and road != near:
+        return "%s near %s, %s" % (road, near, st)
+    return "%s, %s" % (near or road, st) if near or road else props.get("label") or ""
 
 
 def _location(feature):

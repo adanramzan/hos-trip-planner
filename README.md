@@ -106,7 +106,7 @@ All API calls to ORS (routing and geocoding) are made from the backend; the API 
 - **Property-carrying driver** — the planner assumes a for-hire carrier, not a private or owner-operator.
 - **70-hour/8-day cycle** — the driver operates under the federal 70-hour cycle, not the 60-hour/7-day short-haul exception.
 - **No adverse conditions** — no weather or traffic delays; route times are deterministic.
-- **Fresh clocks at trip start** — the driver begins with an 11-hour driving limit and a fresh 14-hour duty window (unless current cycle hours used indicate otherwise).
+- **Fresh clocks at trip start** — the driver begins with an 11-hour driving limit and a fresh 14-hour duty window (unless current cycle hours used indicate otherwise). The first day's log shows Off Duty from midnight until the trip starts, because the planner does not know what the driver did before.
 - **Full tank at trip start** — the truck begins with a full fuel tank.
 - **10-hour daily rest is continuous** — no split sleeper berth optimization; the entire 10 hours must be off-duty (Sleeper Berth).
 - **Any 30+ minute non-driving period resets the 8-hour driving clock** — pickup, dropoff, fuel, and other breaks all count.

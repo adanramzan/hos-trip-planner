@@ -18,6 +18,15 @@ def ok(features):
 
 
 class GeocodeTests(TestCase):
+    def test_label_formats(self):
+        """Towns read 'Town, ST'; a point on a highway reads 'Road near Nearest, ST' (FMCSA log guide, Remarks)."""
+        self.assertEqual(g._label({"locality": "Omaha", "region_a": "NE", "name": "Omaha"}), "Omaha, NE")
+        self.assertEqual(g._label({"name": "County Road 22", "street": "County Road 22", "county": "Logan County", "region_a": "CO"}),
+                         "County Road 22 near Logan County, CO")
+        self.assertEqual(g._label({"name": "I-80", "localadmin": "Paxton", "county": "Keith County", "region_a": "NE"}), "I-80 near Paxton, NE")
+        self.assertEqual(g._label({"name": "Sterling", "localadmin": "Sterling", "region_a": "CO"}), "Sterling, CO")
+        self.assertEqual(g._label({"label": "Somewhere", "name": "Somewhere"}), "Somewhere")
+
     def test_geocode_success(self):
         """Test 16: geocode returns a Location labelled City, ST."""
         with patch("requests.get", return_value=ok([FEATURE])) as get:

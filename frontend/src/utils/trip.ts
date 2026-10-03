@@ -64,7 +64,7 @@ export function derive(def: TripDef): Trip {
     ov.forEach(x => {
       const o = Math.min(x.e, de) - Math.max(x.s, ds)
       t[x.st] += o
-      if (x.k === 'drive' && x.day === d) t.mi += x.mi
+      if (x.k === 'drive') t.mi += x.mi * o / (x.e - x.s) // a drive over midnight splits its miles by time, as the backend does
       if (x.st === 'd' || x.st === 'on') cyc += o
       if (x.k === 'restart' && x.e <= de) cyc = 0
     })

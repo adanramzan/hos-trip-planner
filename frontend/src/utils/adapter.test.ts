@@ -40,6 +40,7 @@ describe('fromApi', () => {
     expect(t.days).toBe(2)
     expect(t.totals.map(d => d.off + d.sb + d.d + d.on)).toEqual([24, 24])
     expect(t.totals[0].d).toBe(8.75)
+    expect(t.totals.map(d => Math.round(d.mi * 10) / 10)).toEqual([502.5, 412.5]) // the 460-mile overnight drive is split 7h:1h
     expect(t.tzName).toBe('America/New_York')
     expect(t.tzAbbr).toBe('EDT')
     expect(t.cycle).toBe(18)
