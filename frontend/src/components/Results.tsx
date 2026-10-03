@@ -15,6 +15,8 @@ interface Props {
   demo: boolean
   replanning: boolean
   side: ReactNode // the trip form, kept beside the results so any field can be changed in place
+  sideOpen: boolean
+  onToggleSide: () => void
   onNew: () => void
   onAssum: () => void
   onPrint: (days: number[]) => void
@@ -22,7 +24,7 @@ interface Props {
 
 const LEGEND = (['off', 'sb', 'd', 'on'] as const).map(k => ({ label: STATUS[k].short || STATUS[k].label, color: STATUS[k].color }))
 
-export function Results({ trip, log, demo, replanning, side, onNew, onAssum, onPrint }: Props) {
+export function Results({ trip, log, demo, replanning, side, sideOpen, onToggleSide, onNew, onAssum, onPrint }: Props) {
   const [sel, setSel] = useState<number | null>(null)
   const [hoverStop, setHoverStop] = useState<number | null>(null)
   const [dayFilter, setDayFilter] = useState<'all' | number>('all')
@@ -82,13 +84,14 @@ export function Results({ trip, log, demo, replanning, side, onNew, onAssum, onP
         </nav>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button className="btn-dark-ghost" style={{ padding: '0 10px' }} onClick={onAssum} title="Assumptions" aria-label="Assumptions"><Icon name="info" /></button>
+          <button className="btn-dark-outline" onClick={onToggleSide} aria-expanded={sideOpen}><Icon name={sideOpen ? "x" : "pencil"} size={15} />{sideOpen ? "Hide form" : "Edit trip"}</button>
           <button className="btn-dark-ghost" onClick={onNew}><Icon name="plus" />New trip</button>
         </div>
       </div>
       {replanning && <div className="replan-bar"><div className="indet" /></div>}
 
-      <main className="main" style={{ gridTemplateColumns: '440px minmax(0,1fr)' }}>
-        <aside className="side">{side}</aside>
+      <main className="main" style={{ gridTemplateColumns: sideOpen ? '440px minmax(0,1fr)' : 'minmax(0,1fr)' }}>
+        <aside className="side" hidden={!sideOpen}>{side}</aside>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 40, minWidth: 0, opacity: replanning ? 0.55 : 1, transition: 'opacity 200ms ease' }}>
 
           <section ref={el => { refs.current.summary = el }} className="section" style={{ gap: 16 }}>

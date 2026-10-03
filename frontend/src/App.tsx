@@ -33,6 +33,7 @@ export default function App() {
   const [step, setStep] = useState(0)
   const [slow, setSlow] = useState(false)
   const [svcError, setSvcError] = useState<Exclude<PlanErrorKind, 'noRoute'> | null>(null)
+  const [sideOpen, setSideOpen] = useState(true) // lives here so an update (which remounts Results) keeps it
   const [svcDetail, setSvcDetail] = useState('') // the backend's reason for a service error
   const [noRoute, setNoRoute] = useState<string | false>(false) // the reason text, '' when unknown
   const [trip, setTrip] = useState<Trip | null>(null)
@@ -133,7 +134,7 @@ export default function App() {
         <>
           <Results key={tripVersion} trip={trip} log={log} demo={demo} replanning={replanning}
             side={<>{svcError && <div className="error-text" style={{ padding: '0 4px 12px' }}>Couldn't update the plan. {svcDetail || 'Try again.'}</div>}{form}</>}
-            onNew={newTrip} onAssum={() => setAssumOpen(o => !o)}
+            sideOpen={sideOpen} onToggleSide={() => setSideOpen(o => !o)} onNew={newTrip} onAssum={() => setAssumOpen(o => !o)}
             onPrint={days => { setPrintDays(days); setMode('print'); window.scrollTo({ top: 0 }) }} />
         </>
       ) : (
