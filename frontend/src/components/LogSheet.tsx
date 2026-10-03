@@ -132,7 +132,7 @@ export function LogSheet({ trip, day, log: lg, print, demo, dots, sel, hoverEv, 
     const a = xs(gr.s), b = Math.max(xs(gr.e), a + 4), cx = (a + b) / 2
     stag = cx - lastX < 40 ? stag + 1 : 0 // close neighbours: a longer stem keeps the parallel labels apart
     lastX = cx
-    const y = B1 + stag * 22
+    const y = B1 + 10 + stag * 22 // short stem, then the diagonal
     const stopEv = gr.acts.find(x => x.meta.stop)
     const col = !print && stopEv && sel === stopEv.i ? C.accent : ink
     const acts = [...new Set(gr.acts.map(x => x.meta.rm).filter(Boolean))].join(' / ')
@@ -143,8 +143,8 @@ export function LogSheet({ trip, day, log: lg, print, demo, dots, sel, hoverEv, 
       <g key={k++} transform={`translate(${cx},${y}) rotate(-45)`} style={{ cursor: clickable ? 'pointer' : 'default' }}
         onClick={clickable ? () => onRemark(stopEv.i) : undefined}>
         <line x1={-len} y1={0} x2={0} y2={0} stroke={col} strokeWidth={2} />
-        <text x={-8} y={-5} fontSize={10.5} fill={col} textAnchor="end" fontWeight={600}>{gr.loc}</text>
-        <text x={-8} y={12} fontSize={9.5} fill={col} textAnchor="end" fontWeight={600}>{acts}</text>
+        <text x={-16} y={-8} fontSize={10.5} fill={col} textAnchor="end" fontWeight={600}>{gr.loc}</text>
+        <text x={-8} y={16} fontSize={9.5} fill={col} textAnchor="end" fontWeight={600}>{acts}</text>
       </g>)
   })
 
